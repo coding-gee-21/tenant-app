@@ -52,7 +52,7 @@ export default function Layout({ children }) {
       <Head>
         <title>Tenant | Student Housing & Hostels in Kenya</title>
         <meta name="description" content="Find verified student apartments, hostels, and connect directly with landlords across Kenya." />
-        <meta name="google-site-verification" content="YOUR_COPIED_CODE_HERE" />
+        <meta name="google-site-verification" content="mXPT2Qx05qcwiekhFOlAV0qYHwl81lR0469oVGdub_4" />
         <link rel="icon" href="/logo.png" type="image/png" />
         
         {/* Open Graph / Social Sharing for Google & Socials */}
