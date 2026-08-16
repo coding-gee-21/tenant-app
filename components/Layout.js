@@ -48,10 +48,18 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-[#1A1A1A] text-gray-200 font-sans flex flex-col">
-      {/* Global Head for Browser Favicon & Title */}
+      {/* Comprehensive SEO & Browser Meta Tags */}
       <Head>
-        <title>Tenant | Direct & Verified Student Housing</title>
+        <title>Tenant | Student Housing & Hostels in Kenya</title>
+        <meta name="description" content="Find verified student apartments, hostels, and connect directly with landlords across Kenya." />
+        <meta name="google-site-verification" content="YOUR_COPIED_CODE_HERE" />
         <link rel="icon" href="/logo.png" type="image/png" />
+        
+        {/* Open Graph / Social Sharing for Google & Socials */}
+        <meta property="og:title" content="Tenant | Student Housing & Hostels in Kenya" />
+        <meta property="og:description" content="Find verified student apartments, hostels, and connect directly with landlords across Kenya." />
+        <meta property="og:url" content="https://tenant-app-neon.vercel.app" />
+        <meta property="og:type" content="website" />
       </Head>
 
       {/* Top Header with Hamburger Menu Button */}
