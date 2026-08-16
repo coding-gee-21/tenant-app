@@ -50,14 +50,17 @@ export default function Layout({ children }) {
     <div className="min-h-screen bg-[#1A1A1A] text-gray-200 font-sans flex flex-col">
       {/* Comprehensive SEO & Browser Meta Tags */}
       <Head>
-        <title>Tenant | Student Housing & Hostels in Kenya</title>
-        <meta name="description" content="Find verified student apartments, hostels, and connect directly with landlords across Kenya." />
+        <title>Tenant | Student Hostels & Housing Near Chuka University</title>
+        <meta name="description" content="Find verified student apartments, hostels, and connect directly with landlords near Chuka University, Kenya." />
+        
+        {/* Google Search Console Verification Tag */}
         <meta name="google-site-verification" content="mXPT2Qx05qcwiekhFOlAV0qYHwl81lR0469oVGdub_4" />
+        
         <link rel="icon" href="/logo.png" type="image/png" />
         
-        {/* Open Graph / Social Sharing for Google & Socials */}
-        <meta property="og:title" content="Tenant | Student Housing & Hostels in Kenya" />
-        <meta property="og:description" content="Find verified student apartments, hostels, and connect directly with landlords across Kenya." />
+        {/* Open Graph / Social Sharing */}
+        <meta property="og:title" content="Tenant | Student Hostels & Housing Near Chuka University" />
+        <meta property="og:description" content="Find verified student apartments, hostels, and connect directly with landlords near Chuka University, Kenya." />
         <meta property="og:url" content="https://tenant-app-neon.vercel.app" />
         <meta property="og:type" content="website" />
       </Head>
