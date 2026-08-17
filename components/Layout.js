@@ -50,7 +50,7 @@ export default function Layout({ children }) {
     <div className="min-h-screen bg-[#1A1A1A] text-gray-200 font-sans flex flex-col">
       {/* Comprehensive SEO & Browser Meta Tags */}
       <Head>
-        <title>Tenant | Student Hostels & Housing Near Chuka University</title>
+        <title>Chuka Rentals | Student Hostels & Housing Near Chuka University</title>
         <meta name="description" content="Find verified student apartments, hostels, and connect directly with landlords near Chuka University, Kenya." />
         
         {/* Google Search Console Verification Tag */}
@@ -59,7 +59,7 @@ export default function Layout({ children }) {
         <link rel="icon" href="/logo.png" type="image/png" />
         
         {/* Open Graph / Social Sharing */}
-        <meta property="og:title" content="Tenant | Student Hostels & Housing Near Chuka University" />
+        <meta property="og:title" content="Chuka Rentals | Student Hostels & Housing Near Chuka University" />
         <meta property="og:description" content="Find verified student apartments, hostels, and connect directly with landlords near Chuka University, Kenya." />
         <meta property="og:url" content="https://tenant-app-neon.vercel.app" />
         <meta property="og:type" content="website" />
@@ -83,7 +83,7 @@ export default function Layout({ children }) {
             height={32} 
             className="rounded-md object-contain"
           />
-          <span className="text-2xl font-bold text-[#E8DCC4] tracking-wider">TENANT</span>
+          <span className="text-2xl font-bold text-[#E8DCC4] tracking-wider">Chuka Rentals</span>
         </Link>
       </header>
 
@@ -108,7 +108,7 @@ export default function Layout({ children }) {
               height={28} 
               className="rounded-md object-contain"
             />
-            <span className="text-xl font-bold text-[#E8DCC4] tracking-wider">TENANT</span>
+            <span className="text-xl font-bold text-[#E8DCC4] tracking-wider">Chuka Rentals</span>
           </Link>
           <button
             onClick={() => setIsOpen(false)}
@@ -148,7 +148,7 @@ export default function Layout({ children }) {
             </button>
           ) : (
             <div className="px-4 py-2 text-xs text-gray-500">
-              {new Date().getFullYear()} Tenant. All rights reserved.
+              {new Date().getFullYear()} Chuka Rentals. All rights reserved.
             </div>
           )}
         </div>
@@ -161,7 +161,7 @@ export default function Layout({ children }) {
         </div>
 
         <footer className="mt-12 py-6 text-center text-gray-500 text-sm border-t border-gray-800">
-          © {new Date().getFullYear()} Tenant. The smarter way to rent.
+          © {new Date().getFullYear()} Chuka Rentals. The smarter way to rent.
         </footer>
       </main>
     </div>
