@@ -1,6 +1,8 @@
 User-agent: *
 Allow: /
-Disallow: /dashboard/
+Disallow: /dashboard
+Disallow: /account/
+Disallow: /landlord/
 Disallow: /api/
 
 Sitemap: https://tenant-app-neon.vercel.app/sitemap.xml

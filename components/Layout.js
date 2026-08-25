@@ -4,20 +4,25 @@ import Head from 'next/head';
 import { supabase } from '../lib/supabaseClient';
 import { useRouter } from 'next/router';
 import { useEffect, useState, useRef } from 'react';
-import { Home, LayoutDashboard, PlusCircle, LogOut, User, Menu, X } from 'lucide-react';
+import { Home, LayoutDashboard, PlusCircle, LogOut, User, Menu, X, Building2, MessageSquare, Search, Heart } from 'lucide-react';
 
 export default function Layout({ children }) {
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const sidebarRef = useRef(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const loadProfile = async (session) => {
       setUser(session?.user ?? null);
-    });
+      if (!session?.user) return setProfile(null);
+      const { data } = await supabase.from('profiles').select('role, full_name').eq('id', session.user.id).maybeSingle();
+      setProfile(data || null);
+    };
+    supabase.auth.getSession().then(({ data: { session } }) => loadProfile(session));
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      loadProfile(session);
     });
     return () => listener?.subscription.unsubscribe();
   }, []);
@@ -122,14 +127,24 @@ export default function Layout({ children }) {
           <Link href="/" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition">
             <Home size={20} /> Home
           </Link>
+          <Link href="/rentals" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition"><Search size={20} /> All Rentals</Link>
           {user ? (
             <>
-              <Link href="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition">
-                <LayoutDashboard size={20} /> Dashboard
+              <Link href="/account" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition">
+                <User size={20} /> Student Account
               </Link>
-              <Link href="/add-property" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition">
-                <PlusCircle size={20} /> List Property
+              <Link href="/account/reviews" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition">
+                <MessageSquare size={20} /> My Reviews
               </Link>
+              <Link href="/account/saved" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition"><Heart size={20} /> Saved Rentals</Link>
+              {profile?.role === 'landlord' || profile?.role === 'admin' ? (
+                <>
+                  <Link href="/landlord/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-blue-300 hover:bg-blue-500/10 hover:text-blue-200 transition"><LayoutDashboard size={20} /> Landlord Dashboard</Link>
+                  <Link href="/add-property" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-blue-300 hover:bg-blue-500/10 hover:text-blue-200 transition"><PlusCircle size={20} /> List Property</Link>
+                </>
+              ) : (
+                <Link href="/landlord" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-blue-300 hover:bg-blue-500/10 hover:text-blue-200 transition"><Building2 size={20} /> Landlord Portal</Link>
+              )}
             </>
           ) : (
             <Link href="/auth" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition">
@@ -164,6 +179,12 @@ export default function Layout({ children }) {
           © {new Date().getFullYear()} Chuka Rentals. The smarter way to rent.
         </footer>
       </main>
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-white/10 bg-[#121215]/95 px-2 py-2 backdrop-blur-xl md:hidden">
+        <Link href="/" className="flex flex-col items-center gap-1 text-[10px] text-gray-300"><Home size={19} />Home</Link>
+        <Link href="/rentals" className="flex flex-col items-center gap-1 text-[10px] text-gray-300"><Search size={19} />Search</Link>
+        <Link href={user ? '/account/saved' : '/auth?returnTo=/account/saved'} className="flex flex-col items-center gap-1 text-[10px] text-gray-300"><Heart size={19} />Saved</Link>
+        <Link href={user ? '/account' : '/auth?returnTo=/account'} className="flex flex-col items-center gap-1 text-[10px] text-gray-300"><User size={19} />Account</Link>
+      </nav>
     </div>
   );
 }

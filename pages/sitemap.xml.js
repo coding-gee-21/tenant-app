@@ -11,15 +11,20 @@ function generateSiteMap(properties) {
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>${BASE_URL}/listings</loc>
+    <loc>${BASE_URL}/rentals</loc>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${BASE_URL}/safety</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>
   ${properties
     .map(({ id, updated_at }) => {
       return `
   <url>
-    <loc>${BASE_URL}/property/${id}</loc>
+    <loc>${BASE_URL}/properties/${id}</loc>
     <lastmod>${updated_at ? new Date(updated_at).toISOString() : new Date().toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -34,10 +39,11 @@ export default function SiteMap() {
 }
 
 export async function getServerSideProps({ res }) {
-  // Fetch all property IDs from Supabase
+  // Fetch all approved property IDs from Supabase
   const { data: properties } = await supabase
     .from('properties')
-    .select('id, updated_at');
+    .select('id, updated_at')
+    .eq('listing_status', 'approved');
 
   const propertyList = properties || [];
 

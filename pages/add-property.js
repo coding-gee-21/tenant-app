@@ -6,16 +6,7 @@ export default function AddProperty() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-
-  useEffect(() => {
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.replace('/auth');
-      }
-    };
-    init();
-  }, [router]);
+  const [phoneVerified, setPhoneVerified] = useState(false);
 
   // Form Fields
   const [title, setTitle] = useState('');
@@ -26,14 +17,48 @@ export default function AddProperty() {
   const [price, setPrice] = useState(''); // Semester rent
   const [whatsapp, setWhatsapp] = useState('');
   const [description, setDescription] = useState(''); // Extra information
-  
+
+  useEffect(() => {
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace('/auth');
+        return;
+      }
+
+      const { data: accountProfile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (accountProfile?.role !== 'landlord' && accountProfile?.role !== 'admin') {
+        router.replace('/landlord');
+        return;
+      }
+
+      const response = await fetch('/api/phone-verification/status', {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      const phoneStatus = await response.json();
+
+      if (response.ok) {
+        setPhoneVerified(Boolean(phoneStatus.phoneVerified));
+        if (phoneStatus.phoneVerified && phoneStatus.phoneNumber) {
+          setWhatsapp(phoneStatus.phoneNumber);
+        }
+      }
+    };
+    init();
+  }, [router]);
+
   // 6 Image Files State
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
 
   // Structured Amenities State
   const [amenities, setAmenities] = useState({
-    electricity: { available: false, type: 'Prepaid' },
+    electricity: { available: false, type: 'Prepaid Tokens' },
     water: { available: false, type: 'Free Running Water', cost: '' },
     security: { available: false, type: 'Security Guard' },
     wifi: { available: false }
@@ -73,6 +98,29 @@ export default function AddProperty() {
         throw new Error('You must be logged in as a landlord to list a property.');
       }
 
+      const { data: phoneStatus, error: phoneStatusError } = await supabase
+        .from('profiles')
+        .select('phone_number, phone_verified, role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (phoneStatusError) throw phoneStatusError;
+
+      if (phoneStatus?.role !== 'landlord' && phoneStatus?.role !== 'admin') {
+        router.push('/landlord');
+        return;
+      }
+
+      if (!phoneStatus?.phone_verified) {
+        router.push('/phone-verification?returnTo=/add-property');
+        return;
+      }
+
+      const verifiedPhone = phoneStatus.phone_number;
+      if (!verifiedPhone) {
+        throw new Error('Your account is marked verified but has no phone number. Please contact support.');
+      }
+
       const { error: landlordUpsertError } = await supabase
         .from('landlords')
         .upsert({ id: user.id, email: user.email, full_name: user.email || 'Landlord' }, { onConflict: 'id' });
@@ -108,9 +156,28 @@ export default function AddProperty() {
         walk_mins: parseInt(walkingTime, 10),
         vacant_rooms: parseInt(vacantRooms, 10),
         semester_rent: parseFloat(price),
-        whatsapp,
+        whatsapp: verifiedPhone,
         images: imageUrls,
+        description: description.trim(),
+        electricity_type: amenities.electricity.available
+          ? amenities.electricity.type
+          : null,
+        water_type: amenities.water.available
+          ? amenities.water.type
+          : null,
+        water_cost:
+          amenities.water.available &&
+          amenities.water.type === 'Tokens / Metered' &&
+          amenities.water.cost
+            ? parseFloat(amenities.water.cost)
+            : null,
+        security_system: amenities.security.available
+          ? amenities.security.type
+          : null,
+        wifi_available: amenities.wifi.available,
         status: 'vacant',
+        listing_status: 'pending',
+        verification_status: 'unverified',
         user_id: user.id,
         landlord_id: user.id
       };
@@ -127,7 +194,7 @@ export default function AddProperty() {
       }
 
       console.log('Listing published successfully:', data);
-      router.push('/dashboard');
+      router.push('/landlord/dashboard');
     } catch (err) {
       setErrorMsg(err.message);
       setLoading(false);
@@ -224,15 +291,24 @@ export default function AddProperty() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">WhatsApp Contact Number *</label>
-            <input
-              type="text"
-              required
-              placeholder="0709797271"
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-              className="w-full bg-[#18181B] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500"
-            />
+            <label className="block text-sm font-medium mb-2">Verified Contact Number</label>
+            <div className="flex items-center justify-between gap-3 bg-[#18181B] border border-emerald-500/20 rounded-xl px-4 py-3">
+              <span className="text-gray-200">{whatsapp || 'Phone verification required'}</span>
+              {phoneVerified ? (
+                <span className="text-xs font-semibold text-emerald-400">Verified ✓</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => router.push('/phone-verification?returnTo=/add-property')}
+                  className="text-xs font-semibold text-blue-400 hover:text-blue-300"
+                >
+                  Verify now
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              This verified number will be used as the primary contact for this listing.
+            </p>
           </div>
 
           {/* Structured Amenities Section */}
@@ -263,7 +339,7 @@ export default function AddProperty() {
                     })}
                     className="bg-[#121215] border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
                   >
-                    <option value="Prepaid">Prepaid Tokens</option>
+                    <option value="Prepaid Tokens">Prepaid Tokens</option>
                     <option value="Postpaid">Postpaid Meter</option>
                   </select>
                 )}
@@ -347,10 +423,10 @@ export default function AddProperty() {
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={amenities.wifi}
+                    checked={amenities.wifi.available}
                     onChange={(e) => setAmenities({
                       ...amenities,
-                      wifi: e.target.checked
+                      wifi: { ...amenities.wifi, available: e.target.checked }
                     })}
                     className="w-5 h-5 accent-blue-600 rounded"
                   />
@@ -409,10 +485,10 @@ export default function AddProperty() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !phoneVerified}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3.5 rounded-xl transition shadow-lg shadow-blue-600/20 disabled:opacity-50"
           >
-            {loading ? 'Publishing Listing...' : 'Publish Property Listing'}
+            {loading ? 'Publishing Listing...' : phoneVerified ? 'Publish Property Listing' : 'Verify Phone to Continue'}
           </button>
         </form>
       </div>

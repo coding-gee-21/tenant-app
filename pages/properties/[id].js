@@ -4,8 +4,10 @@ import { supabase } from '../../lib/supabaseClient';
 import { useUser } from '../../lib/useUser';
 import ImageCarousel from '../../components/ImageCarousel';
 import { handleWhatsAppClick } from '../../utils/trackLead';
-import { Eye, Bookmark, Flag, Star } from 'lucide-react';
-import ReviewCard from '../../components/ReviewCard';
+import { Eye, Bookmark, Flag, CheckCircle, CalendarDays } from 'lucide-react';
+import ReviewSection from '../../components/ReviewSection';
+import ViewingRequestModal from '../../components/ViewingRequestModal';
+import { useToast } from '../../components/Toast';
 
 export default function PropertyDetail() {
   const router = useRouter();
@@ -16,6 +18,8 @@ export default function PropertyDetail() {
   
   // Bookmarks & Views
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [showViewingRequest, setShowViewingRequest] = useState(false);
+  const { showToast } = useToast();
 
   // Reporting Modal State
   const [showReportModal, setShowReportModal] = useState(false);
@@ -23,15 +27,6 @@ export default function PropertyDetail() {
   const [reportReason, setReportReason] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
-
-  // Reviews States
-  const [reviews, setReviews] = useState([]);
-  const [rating, setRating] = useState('5');
-  const [comment, setComment] = useState('');
-  const [reviewImage, setReviewImage] = useState(null);
-  const [reviewImagePreview, setReviewImagePreview] = useState(null);
-  const [submittingReview, setSubmittingReview] = useState(false);
-  const [reviewError, setReviewError] = useState('');
 
   useEffect(() => {
     if (!id || id === '[id]') return;
@@ -41,11 +36,11 @@ export default function PropertyDetail() {
         .from('properties')
         .select('*, landlord:landlords(*)')
         .eq('id', id)
+        .eq('listing_status', 'approved')
         .single();
       
       if (!error && data) {
         setProperty(data);
-        fetchReviews(id);
 
         // 2. Increment Real-Time View Counter in Supabase
         const { error: viewError } = await supabase.rpc('increment_property_views', { p_property_id: id });
@@ -69,24 +64,9 @@ export default function PropertyDetail() {
     checkBookmarkStatus();
   }, [id, user]);
 
-  const fetchReviews = async (propId) => {
-    try {
-      const { data, error } = await supabase
-        .from('reviews')
-        .select('*, profiles(full_name)')
-        .eq('property_id', propId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setReviews(data || []);
-    } catch (err) {
-      console.error('Error fetching reviews:', err.message);
-    }
-  };
-
   const handleBookmarkToggle = async () => {
     if (!user) {
-      alert('Please log in to save properties to your bookmarks.');
+      showToast('Log in to save properties.', 'info');
       router.push('/auth');
       return;
     }
@@ -97,12 +77,12 @@ export default function PropertyDetail() {
         .delete()
         .eq('user_id', user.id)
         .eq('property_id', id);
-      if (!error) setIsBookmarked(false);
+      if (!error) { setIsBookmarked(false); showToast('Property removed from saved rentals.', 'info'); }
     } else {
       const { error } = await supabase
         .from('bookmarks')
         .insert({ user_id: user.id, property_id: id });
-      if (!error) setIsBookmarked(true);
+      if (!error) { setIsBookmarked(true); showToast('Property saved to your shortlist.'); }
     }
   };
 
@@ -150,109 +130,72 @@ export default function PropertyDetail() {
 
   const handleReport = async (e) => {
     e.preventDefault();
+
     if (!reportReason.trim()) {
       alert('Please describe the issue.');
       return;
     }
 
     setReportLoading(true);
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
 
-    const { error } = await supabase
-      .from('property_reports')
-      .insert({
-        property_id: property.id,
-        reporter_id: currentUser ? currentUser.id : null,
-        issue_type: reportType,
-        description: reportReason,
-      });
+    try {
+      const {
+        data: { user: currentUser }
+      } = await supabase.auth.getUser();
 
-    // Notify Landlord regarding report
-    if (property.user_id) {
-      await supabase.from('notifications').insert({
-        landlord_id: property.user_id,
-        title: 'Listing Flagged / Reported',
-        message: `Your property "${property.title}" has been reported for: ${reportType}.`,
-        type: 'property_report'
-      });
-    }
+      const { error: reportError } = await supabase
+        .from('property_reports')
+        .insert({
+          property_id: property.id,
+          reporter_id: currentUser ? currentUser.id : null,
+          issue_type: reportType,
+          description: reportReason.trim(),
+          admin_status: 'pending'
+        });
 
-    setReportLoading(false);
-    if (error) {
-      alert('Error submitting report: ' + error.message);
-    } else {
+      if (reportError) throw reportError;
+
+      const combinedReason = `${reportType}: ${reportReason.trim()}`;
+
+      const { error: flagError } = await supabase
+        .from('properties')
+        .update({
+          is_flagged: true,
+          flag_reason: combinedReason,
+          flagged_at: new Date().toISOString()
+        })
+        .eq('id', property.id);
+
+      if (flagError) throw flagError;
+
+      if (property.user_id) {
+        await supabase.from('notifications').insert({
+          landlord_id: property.user_id,
+          title: 'Listing Flagged / Reported',
+          message: `Your property "${property.title}" has been reported for: ${reportType}. It is now under administrator review.`,
+          type: 'property_report'
+        });
+      }
+
+      setProperty((current) => ({
+        ...current,
+        is_flagged: true,
+        flag_reason: combinedReason,
+        flagged_at: new Date().toISOString()
+      }));
+
       setReportSuccess(true);
       setReportReason('');
+
       setTimeout(() => {
         setShowReportModal(false);
         setReportSuccess(false);
       }, 2500);
-    }
-  };
-
-  const handleReviewSubmit = async (e) => {
-    e.preventDefault();
-    setSubmittingReview(true);
-    setReviewError('');
-
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        alert('Your session is invalid or expired. Please log in again.');
-        router.push('/auth');
-        return;
-      }
-
-      const userId = user.id;
-
-      let imageUrl = null;
-      if (reviewImage) {
-        const fileExt = reviewImage.name.split('.').pop();
-        const fileName = `${userId}-${Date.now()}.${fileExt}`;
-        const filePath = `${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('review-images')
-          .upload(filePath, reviewImage);
-
-        if (uploadError) throw uploadError;
-
-        const { data: publicUrlData } = supabase.storage
-          .from('review-images')
-          .getPublicUrl(filePath);
-
-        imageUrl = publicUrlData.publicUrl;
-      }
-
-      const { error: insertError } = await supabase.from('reviews').insert({
-        property_id: id,
-        user_id: userId,
-        rating: parseInt(rating),
-        comment,
-        image_url: imageUrl
-      });
-
-      if (insertError) throw insertError;
-
-      setComment('');
-      setReviewImage(null);
-      setReviewImagePreview(null);
-      
-      fetchReviews(id); 
     } catch (err) {
-      console.error(err);
-      setReviewError(err.message);
+      console.error('Report submission failed:', err);
+      alert('Error submitting report: ' + err.message);
     } finally {
-      setSubmittingReview(false);
-    }
-  };
-
-  const handleReviewImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setReviewImage(file);
-      setReviewImagePreview(URL.createObjectURL(file));
+      setReportLoading(false);
     }
   };
 
@@ -289,21 +232,42 @@ export default function PropertyDetail() {
       <div className="bg-[#18181B] border border-white/10 rounded-2xl shadow-xl p-6 md:p-8 space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="mb-1">
               <h1 className="text-2xl md:text-3xl font-bold">{property.title}</h1>
-              {property.is_verified && (
-                <span className="bg-blue-500/10 text-blue-400 border border-blue-500/30 text-xs px-2.5 py-1 rounded-full font-semibold">
-                  Verified Landlord ✅
+              <div className="flex items-center gap-2 mt-2">
+              {property.is_flagged ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-300">
+                  <Flag size={12} />
+                  Flagged for Review
                 </span>
-              )}
+              ) : property.verification_status === 'verified' || property.is_verified === true ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">
+                  <CheckCircle size={12} />
+                  Chuka Rentals Verified
+                </span>
+              ) : null}
+            </div>
             </div>
             <p className="text-gray-400 text-sm">
               {property.house_type || 'Bedsitter'} • 📍 {property.landmark || property.campus_landmark || 'Ndagani'}
             </p>
 
             {property.is_flagged && (
-              <div className="bg-red-900/80 border border-red-700 text-red-200 px-4 py-3 rounded-md mt-3 flex items-center justify-between">
-                <span className="font-semibold">⚠️ Warning: This listing has been flagged as unverified or suspicious by the community.</span>
+              <div className="bg-red-500/10 border border-red-500/30 text-red-200 px-4 py-4 rounded-xl mt-3">
+                <div className="flex items-center gap-2 font-semibold">
+                  <Flag size={17} />
+                  Listing flagged for administrator review
+                </div>
+
+                {property.flag_reason && (
+                  <p className="text-sm text-red-200/80 mt-2">
+                    Reported issue: {property.flag_reason}
+                  </p>
+                )}
+
+                <p className="text-xs text-red-200/60 mt-2">
+                  This report has not yet been confirmed by Chuka Rentals.
+                </p>
               </div>
             )}
           </div>
@@ -340,6 +304,7 @@ export default function PropertyDetail() {
           >
             📞 Call Caretaker
           </button>
+          <button type="button" onClick={() => setShowViewingRequest(true)} className="flex-1 bg-[#242427] hover:bg-[#303036] text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 border border-white/10 transition"><CalendarDays size={18} /> Request Viewing</button>
         </div>
 
         {/* Property Specifications */}
@@ -406,71 +371,13 @@ export default function PropertyDetail() {
         </div>
       </div>
 
-      {/* Student Reviews Section */}
-      <div className="bg-[#18181B] border border-white/10 rounded-2xl p-6 md:p-8 space-y-6">
-        <h3 className="text-xl font-bold">Student Reviews ({reviews.length})</h3>
-
-        {reviewError && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-sm">
-            {reviewError}
-          </div>
-        )}
-
-        <form onSubmit={handleReviewSubmit} className="bg-[#242427]/60 p-5 rounded-xl border border-white/5 space-y-4">
-          <h4 className="text-sm font-semibold text-gray-200">Leave Your Review</h4>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Rating</label>
-            <select
-              value={rating}
-              onChange={(e) => setRating(e.target.value)}
-              className="w-full bg-[#121215] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-            >
-              <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
-              <option value="4">⭐⭐⭐⭐ (4/5)</option>
-              <option value="3">⭐⭐⭐ (3/5)</option>
-              <option value="2">⭐⭐ (2/5)</option>
-              <option value="1">⭐ (1/5)</option>
-            </select>
-          </div>
-          <div>
-            <textarea
-              rows="3"
-              required
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Share your experience regarding water, security, or landlord responsiveness..."
-              className="w-full bg-[#121215] border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500"
-            ></textarea>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Attach Photo (optional)</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleReviewImageChange}
-              className="w-full bg-[#121215] border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-            />
-            {reviewImagePreview && (
-              <img src={reviewImagePreview} alt="Preview" className="mt-2 w-32 h-32 object-cover rounded-md border border-white/10" />
-            )}
-          </div>
-          <button
-            type="submit"
-            disabled={submittingReview}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-xl text-sm transition shadow-lg shadow-blue-600/20 disabled:opacity-50"
-          >
-            {submittingReview ? 'Submitting...' : 'Post Review'}
-          </button>
-        </form>
-
-        <div className="space-y-3">
-          {reviews.length === 0 ? (
-            <p className="text-sm text-gray-400">No reviews yet. Be the first student to review this hostel!</p>
-          ) : (
-            reviews.map((rev) => <ReviewCard key={rev.id} review={rev} />)
-          )}
-        </div>
-      </div>
+      {/* Professional Student Review Section */}
+      <ReviewSection
+        propertyId={property.id}
+        propertyOwnerId={property.user_id || property.landlord_id}
+      />
+      <div className="fixed inset-x-0 bottom-14 z-30 grid grid-cols-3 gap-2 border-t border-white/10 bg-[#121215]/95 p-3 backdrop-blur-xl md:hidden"><button onClick={handleBookmarkToggle} className="rounded-xl border border-white/10 py-3 text-xs">{isBookmarked ? 'Saved' : 'Save'}</button><button onClick={handleWhatsApp} className="rounded-xl bg-emerald-600 py-3 text-xs font-semibold">WhatsApp</button><button onClick={() => setShowViewingRequest(true)} className="rounded-xl bg-blue-600 py-3 text-xs font-semibold">View Room</button></div>
+      {showViewingRequest && <ViewingRequestModal property={property} user={user} onClose={() => setShowViewingRequest(false)} />}
 
       {/* Report Modal */}
       {showReportModal && (
@@ -496,6 +403,12 @@ export default function PropertyDetail() {
                     <option value="Fraudulent Listing">Fraudulent Listing</option>
                     <option value="Already Occupied">Already Occupied / Fully Booked</option>
                     <option value="Incorrect Pricing">Incorrect Pricing Information</option>
+                    <option value="Wrong or Misleading Photos">Wrong or Misleading Photos</option>
+                    <option value="Incorrect Landlord/Caretaker Information">
+                      Incorrect Landlord/Caretaker Information
+                    </option>
+                    <option value="Suspicious Activity">Suspicious Activity</option>
+                    <option value="Duplicate Listing">Duplicate Listing</option>
                     <option value="Other">Other Grievance</option>
                   </select>
                 </div>

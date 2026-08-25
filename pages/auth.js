@@ -10,6 +10,9 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const destination = typeof router.query.returnTo === 'string' && router.query.returnTo.startsWith('/')
+    ? router.query.returnTo
+    : '/';
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -30,11 +33,17 @@ export default function Auth() {
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              full_name: fullName,
+            },
+            emailRedirectTo: `${window.location.origin}/auth?confirmed=1&returnTo=` + encodeURIComponent(destination),
+          },
         });
 
         if (authError) {
           if (authError.status === 422 || authError.message.toLowerCase().includes('already registered')) {
-            alert('This email is already registered. Switching you to login mode.');
+            alert('This email is already registered. Please log in.');
             setMode('login');
             setLoading(false);
             return;
@@ -42,20 +51,13 @@ export default function Auth() {
           throw authError;
         }
 
-        if (authData.user) {
-          const { error: profileError } = await supabase.from('profiles').insert([
-            {
-              id: authData.user.id,
-              full_name: fullName,
-            },
-          ]);
-          if (profileError) {
-            console.warn(profileError.message);
-          }
+        if (authData.session) {
+          alert('Registration successful. Your email is already confirmed.');
+          router.push(destination);
+        } else {
+          alert('Account created. Check your email and click the confirmation link before logging in.');
+          setMode('login');
         }
-
-        alert('Registration successful!');
-        router.push('/');
       } else {
         const { error: loginError } = await supabase.auth.signInWithPassword({
           email,
@@ -63,7 +65,7 @@ export default function Auth() {
         });
         if (loginError) throw loginError;
 
-        router.push('/');
+        router.push(destination);
       }
     } catch (error) {
       alert(error.message);
