@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/router';
 import {
   BarChart3,
   Camera,
@@ -104,6 +105,7 @@ export default function ReviewSection({
   propertyId,
   propertyOwnerId
 }) {
+  const router = useRouter();
   const [reviews, setReviews] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [sortBy, setSortBy] = useState('helpful');
@@ -116,7 +118,7 @@ export default function ReviewSection({
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
 
-  const loadReviews = async () => {
+  const loadReviews = useCallback(async () => {
     const {
       data: { user }
     } = await supabase.auth.getUser();
@@ -126,7 +128,24 @@ export default function ReviewSection({
     const { data, error } = await supabase
       .from('reviews')
       .select(`
-        *,
+        id,
+        property_id,
+        rating,
+        title,
+        comment,
+        water_rating,
+        security_rating,
+        management_rating,
+        value_rating,
+        electricity_rating,
+        cleanliness_rating,
+        would_recommend,
+        is_anonymous,
+        image_url,
+        helpful_count,
+        status,
+        created_at,
+        updated_at,
         profiles(full_name, student_verified),
         review_responses(id, landlord_id, response, created_at, updated_at)
       `)
@@ -140,32 +159,44 @@ export default function ReviewSection({
     }
 
     let helpfulReviewIds = [];
+    let authoredReviewIds = [];
 
     if (user && data?.length) {
-      const { data: helpfulVotes } = await supabase
-        .from('review_helpful_votes')
-        .select('review_id')
-        .eq('user_id', user.id)
-        .in(
-          'review_id',
-          data.map((review) => review.id)
-        );
+      const reviewIds = data.map((review) => review.id);
+      const [helpfulResult, authoredResult] = await Promise.all([
+        supabase
+          .from('review_helpful_votes')
+          .select('review_id')
+          .eq('user_id', user.id)
+          .in('review_id', reviewIds),
+        supabase
+          .from('reviews')
+          .select('id')
+          .eq('property_id', propertyId)
+          .eq('user_id', user.id),
+      ]);
 
       helpfulReviewIds =
-        helpfulVotes?.map((vote) => vote.review_id) || [];
+        helpfulResult.data?.map((vote) => vote.review_id) || [];
+      authoredReviewIds =
+        authoredResult.data?.map((review) => review.id) || [];
     }
 
     setReviews(
       (data || []).map((review) => ({
         ...review,
-        viewer_found_helpful: helpfulReviewIds.includes(review.id)
+        viewer_found_helpful: helpfulReviewIds.includes(review.id),
+        viewer_is_author: authoredReviewIds.includes(review.id)
       }))
     );
-  };
+  }, [propertyId]);
 
   useEffect(() => {
-    if (propertyId) loadReviews();
-  }, [propertyId]);
+    if (!propertyId) return undefined;
+
+    const timer = window.setTimeout(loadReviews, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadReviews, propertyId]);
 
   const visibleReviews = useMemo(() => {
     let result = reviews.filter((review) => {
@@ -238,9 +269,11 @@ export default function ReviewSection({
     setMessage('');
 
     if (!currentUser) {
-      window.location.href = `/auth?returnTo=${encodeURIComponent(
-        `/properties/${propertyId}`
-      )}`;
+      router.push(
+        `/auth?returnTo=${encodeURIComponent(
+          `/properties/${propertyId}`
+        )}`
+      );
       return;
     }
 
@@ -325,9 +358,11 @@ export default function ReviewSection({
 
   const toggleHelpful = async (review) => {
     if (!currentUser) {
-      window.location.href = `/auth?returnTo=${encodeURIComponent(
-        `/properties/${propertyId}`
-      )}`;
+      router.push(
+        `/auth?returnTo=${encodeURIComponent(
+          `/properties/${propertyId}`
+        )}`
+      );
       return;
     }
 
@@ -351,9 +386,11 @@ export default function ReviewSection({
 
   const reportReview = async (reviewId) => {
     if (!currentUser) {
-      window.location.href = `/auth?returnTo=${encodeURIComponent(
-        `/properties/${propertyId}`
-      )}`;
+      router.push(
+        `/auth?returnTo=${encodeURIComponent(
+          `/properties/${propertyId}`
+        )}`
+      );
       return;
     }
 
@@ -704,6 +741,7 @@ export default function ReviewSection({
               key={review.id}
               review={review}
               currentUserId={currentUser?.id}
+              isReviewAuthor={review.viewer_is_author}
               isPropertyOwner={
                 currentUser?.id === propertyOwnerId
               }

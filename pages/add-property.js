@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
+
+const LocationPicker = dynamic(
+  () => import('../components/LocationPicker'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-56 items-center justify-center rounded-xl border border-white/10 bg-[#121215] text-sm text-gray-400">
+        Loading location tools...
+      </div>
+    ),
+  }
+);
 
 export default function AddProperty() {
   const router = useRouter();
@@ -12,11 +25,28 @@ export default function AddProperty() {
   const [title, setTitle] = useState('');
   const [houseType, setHouseType] = useState('Bedsitter');
   const [landmark, setLandmark] = useState('');
+  const [location, setLocation] = useState({
+    lat: null,
+    lng: null,
+    accuracy: null,
+  });
   const [walkingTime, setWalkingTime] = useState('');
   const [vacantRooms, setVacantRooms] = useState('');
   const [price, setPrice] = useState(''); // Semester rent
   const [whatsapp, setWhatsapp] = useState('');
   const [description, setDescription] = useState(''); // Extra information
+  const [management, setManagement] = useState({
+    landlordName: '',
+    caretakerName: '',
+    caretakerPhone: '',
+    caretakerHours: '',
+    depositAmount: '',
+    electricityCost: '',
+    wifiCost: '',
+    otherCharges: '',
+    securityLighting: false,
+    cctvAvailable: false
+  });
 
   useEffect(() => {
     const init = async () => {
@@ -48,6 +78,11 @@ export default function AddProperty() {
           setWhatsapp(phoneStatus.phoneNumber);
         }
       }
+
+      setManagement((current) => ({
+        ...current,
+        landlordName: session.user.user_metadata?.full_name || ''
+      }));
     };
     init();
   }, [router]);
@@ -89,6 +124,27 @@ export default function AddProperty() {
   // Handle Form Submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const latitude = Number(location.lat);
+    const longitude = Number(location.lng);
+
+    if (
+      location.lat === null ||
+      location.lng === null ||
+      !Number.isFinite(latitude) ||
+      latitude < -90 ||
+      latitude > 90 ||
+      !Number.isFinite(longitude) ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      setErrorMsg(
+        'Please select and confirm the hostel location before publishing.'
+      );
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     setLoading(true);
     setErrorMsg('');
 
@@ -153,12 +209,29 @@ export default function AddProperty() {
         title,
         house_type: houseType,
         landmark,
+        latitude,
+        longitude,
+        location_accuracy_meters:
+          location.accuracy === null
+            ? null
+            : Number(location.accuracy),
+        location_updated_at: new Date().toISOString(),
         walk_mins: parseInt(walkingTime, 10),
         vacant_rooms: parseInt(vacantRooms, 10),
         semester_rent: parseFloat(price),
         whatsapp: verifiedPhone,
         images: imageUrls,
         description: description.trim(),
+        landlord_display_name: management.landlordName.trim(),
+        caretaker_name: management.caretakerName.trim() || null,
+        caretaker_phone: management.caretakerPhone.trim() || null,
+        caretaker_hours: management.caretakerHours.trim() || null,
+        deposit_amount: management.depositAmount ? parseFloat(management.depositAmount) : 0,
+        electricity_cost: management.electricityCost ? parseFloat(management.electricityCost) : 0,
+        wifi_cost: management.wifiCost ? parseFloat(management.wifiCost) : 0,
+        other_charges: management.otherCharges.trim() || null,
+        security_lighting: management.securityLighting,
+        cctv_available: management.cctvAvailable,
         electricity_type: amenities.electricity.available
           ? amenities.electricity.type
           : null,
@@ -290,6 +363,20 @@ export default function AddProperty() {
             </div>
           </div>
 
+          <div className="border-t border-white/10 pt-6">
+            <LocationPicker
+              value={location}
+              onLocationSelect={setLocation}
+            />
+
+            {location.lat !== null && location.lng !== null && (
+              <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-200">
+                Hostel location selected: {Number(location.lat).toFixed(6)},{' '}
+                {Number(location.lng).toFixed(6)}
+              </div>
+            )}
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-2">Verified Contact Number</label>
             <div className="flex items-center justify-between gap-3 bg-[#18181B] border border-emerald-500/20 rounded-xl px-4 py-3">
@@ -309,6 +396,49 @@ export default function AddProperty() {
             <p className="text-xs text-gray-500 mt-2">
               This verified number will be used as the primary contact for this listing.
             </p>
+          </div>
+
+          <div className="border-t border-white/10 pt-6 space-y-5">
+            <div>
+              <h3 className="text-lg font-semibold">Property Management</h3>
+              <p className="mt-1 text-sm text-gray-400">Tell students who owns the listing and who they can reach on site.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Landlord display name *</label>
+                <input required value={management.landlordName} onChange={(e) => setManagement({...management, landlordName: e.target.value})} placeholder="e.g. Jane M." className="w-full bg-[#18181B] border border-white/10 rounded-xl px-4 py-3" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Trusted caretaker name</label>
+                <input value={management.caretakerName} onChange={(e) => setManagement({...management, caretakerName: e.target.value})} placeholder="e.g. Peter N." className="w-full bg-[#18181B] border border-white/10 rounded-xl px-4 py-3" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Caretaker phone</label>
+                <input type="tel" value={management.caretakerPhone} onChange={(e) => setManagement({...management, caretakerPhone: e.target.value})} placeholder="e.g. 0712 345 678" className="w-full bg-[#18181B] border border-white/10 rounded-xl px-4 py-3" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Caretaker availability</label>
+                <input value={management.caretakerHours} onChange={(e) => setManagement({...management, caretakerHours: e.target.value})} placeholder="e.g. Mon–Sat, 7am–8pm" className="w-full bg-[#18181B] border border-white/10 rounded-xl px-4 py-3" />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">Only provide caretaker details with their permission. Identity documents and private verification photos are handled separately and are never shown here.</p>
+          </div>
+
+          <div className="border-t border-white/10 pt-6 space-y-5">
+            <div>
+              <h3 className="text-lg font-semibold">Semester Cost Breakdown</h3>
+              <p className="mt-1 text-sm text-gray-400">Declare every expected charge so students can compare the true semester cost.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div><label className="block text-sm mb-2">Deposit (KSh)</label><input min="0" type="number" value={management.depositAmount} onChange={(e) => setManagement({...management, depositAmount: e.target.value})} className="w-full bg-[#18181B] border border-white/10 rounded-xl px-4 py-3" /></div>
+              <div><label className="block text-sm mb-2">Electricity per semester (KSh)</label><input min="0" type="number" value={management.electricityCost} onChange={(e) => setManagement({...management, electricityCost: e.target.value})} className="w-full bg-[#18181B] border border-white/10 rounded-xl px-4 py-3" /></div>
+              <div><label className="block text-sm mb-2">Wi-Fi per semester (KSh)</label><input min="0" type="number" value={management.wifiCost} onChange={(e) => setManagement({...management, wifiCost: e.target.value})} className="w-full bg-[#18181B] border border-white/10 rounded-xl px-4 py-3" /></div>
+            </div>
+            <div><label className="block text-sm mb-2">Other charges and payment terms</label><textarea rows="2" value={management.otherCharges} onChange={(e) => setManagement({...management, otherCharges: e.target.value})} placeholder="List each charge, amount and when it is due." className="w-full bg-[#18181B] border border-white/10 rounded-xl px-4 py-3" /></div>
+            <div className="flex flex-wrap gap-6">
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={management.securityLighting} onChange={(e) => setManagement({...management, securityLighting: e.target.checked})} /> Security lighting</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={management.cctvAvailable} onChange={(e) => setManagement({...management, cctvAvailable: e.target.checked})} /> CCTV available</label>
+            </div>
           </div>
 
           {/* Structured Amenities Section */}

@@ -40,7 +40,13 @@ export default function StudentAccount() {
         <Link href="/account/reviews" className="rounded-2xl border border-white/10 bg-[#18181B] p-6 hover:border-blue-500/40"><MessageSquare className="text-blue-400" /><p className="mt-3 text-xl font-bold">{counts.reviews}</p><p className="text-gray-400">Your reviews</p></Link>
         <Link href="/account/saved" className="rounded-2xl border border-white/10 bg-[#18181B] p-6 hover:border-amber-500/40"><Bookmark className="text-amber-400" /><p className="mt-3 text-xl font-bold">{counts.saved}</p><p className="text-gray-400">Saved properties</p></Link>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3"><Link href="/account/searches" className="rounded-2xl border border-white/10 bg-[#18181B] p-5 hover:border-blue-500/40"><Bell className="text-blue-400"/><p className="mt-3 font-semibold">Saved searches</p></Link><Link href="/account/viewings" className="rounded-2xl border border-white/10 bg-[#18181B] p-5 hover:border-blue-500/40"><CalendarDays className="text-emerald-400"/><p className="mt-3 font-semibold">Viewing requests</p></Link><Link href="/safety" className="rounded-2xl border border-white/10 bg-[#18181B] p-5 hover:border-blue-500/40"><ShieldCheck className="text-amber-400"/><p className="mt-3 font-semibold">Safety centre</p></Link></div>
+      <div className="grid gap-4 sm:grid-cols-4"><Link href="/account/searches" className="rounded-2xl border border-white/10 bg-[#18181B] p-5 hover:border-blue-500/40"><Bell className="text-blue-400"/><p className="mt-3 font-semibold">Saved searches</p></Link><Link
+        href="/account/notifications"
+        className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 font-semibold text-white transition hover:border-blue-500/40 hover:bg-blue-500/10"
+      >
+        <Bell size={20} className="text-blue-400" />
+        Notifications
+      </Link><Link href="/account/viewings" className="rounded-2xl border border-white/10 bg-[#18181B] p-5 hover:border-blue-500/40"><CalendarDays className="text-emerald-400"/><p className="mt-3 font-semibold">Viewing requests</p></Link><Link href="/safety" className="rounded-2xl border border-white/10 bg-[#18181B] p-5 hover:border-blue-500/40"><ShieldCheck className="text-amber-400"/><p className="mt-3 font-semibold">Safety centre</p></Link></div>
       <Link href="/landlord" className="flex items-center justify-between rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6 hover:bg-blue-500/15"><span><strong>Own or manage accommodation?</strong><span className="block text-sm text-gray-300 mt-1">Open the separate landlord portal.</span></span><Building2 className="text-blue-400" /></Link>
     </div>
   );

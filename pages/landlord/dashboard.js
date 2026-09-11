@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { LayoutDashboard, PlusCircle, Eye, MessageSquare, Building2, Trash2, Edit3, Bell, CheckSquare, Square, X, CalendarDays } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Eye, MessageSquare, Building2, Trash2, Edit3, Bell, CheckSquare, Square, CalendarDays, ClipboardList, BadgeDollarSign, Users } from 'lucide-react';
+import EditPropertyModal from '../../components/EditPropertyModal';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function Dashboard() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [stats, setStats] = useState({ views: 0, leads: 0, total: 0 });
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [verifiedPhone, setVerifiedPhone] = useState('');
   
   // Edit Modal State
   const [editingProperty, setEditingProperty] = useState(null);
@@ -20,11 +22,7 @@ export default function Dashboard() {
     return Math.round(checks.filter(Boolean).length / checks.length * 100);
   };
 
-  useEffect(() => {
-    checkUserAndFetch();
-  }, []);
-
-  const checkUserAndFetch = async () => {
+  const checkUserAndFetch = useCallback(async () => {
     try {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
@@ -35,7 +33,7 @@ export default function Dashboard() {
 
       const { data: phoneData } = await supabase
         .from('profiles')
-        .select('phone_verified, role')
+        .select('phone_number, phone_verified, role')
         .eq('id', session.user.id)
         .maybeSingle();
 
@@ -45,6 +43,7 @@ export default function Dashboard() {
       }
 
       setPhoneVerified(Boolean(phoneData?.phone_verified));
+      setVerifiedPhone(phoneData?.phone_number || '');
 
       // Fetch Properties
       const { data: propData, error: propError } = await supabase
@@ -80,7 +79,12 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(checkUserAndFetch, 0);
+    return () => window.clearTimeout(timer);
+  }, [checkUserAndFetch]);
 
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this listing?')) return;
@@ -157,59 +161,7 @@ export default function Dashboard() {
     }
   };
 
-  const openEditModal = (prop) => {
-    setEditingProperty({
-      ...prop,
-      title: prop.title || '',
-      house_type: prop.house_type || 'Bedsitter',
-      landmark: prop.landmark || '',
-      walk_mins: prop.walk_mins || 5,
-      vacant_rooms: prop.vacant_rooms || 0,
-      semester_rent: prop.semester_rent || prop.price || prop.rent || 0,
-      whatsapp: prop.whatsapp || '',
-      electricity_type: prop.electricity_type || 'Prepaid Tokens',
-      water_type: prop.water_type || 'Tokens / Metered',
-      water_cost: prop.water_cost || '',
-      security_system: prop.security_system || 'Security Guard',
-      wifi_available: prop.wifi_available || false,
-      description: prop.description || ''
-    });
-  };
-
-  const handleUpdateProperty = async (e) => {
-    e.preventDefault();
-    if (!editingProperty) return;
-
-    try {
-      const { error } = await supabase
-        .from('properties')
-        .update({
-          title: editingProperty.title,
-          house_type: editingProperty.house_type,
-          landmark: editingProperty.landmark,
-          walk_mins: editingProperty.walk_mins,
-          vacant_rooms: editingProperty.vacant_rooms,
-          semester_rent: editingProperty.semester_rent,
-          whatsapp: editingProperty.whatsapp,
-          electricity_type: editingProperty.electricity_type,
-          water_type: editingProperty.water_type,
-          water_cost: editingProperty.water_cost,
-          security_system: editingProperty.security_system,
-          wifi_available: editingProperty.wifi_available,
-          description: editingProperty.description,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', editingProperty.id);
-
-      if (error) throw error;
-
-      setProperties(properties.map(p => p.id === editingProperty.id ? { ...p, ...editingProperty } : p));
-      setEditingProperty(null);
-      alert('Property updated successfully!');
-    } catch (err) {
-      alert('Failed to update property: ' + err.message);
-    }
-  };
+  const openEditModal = (property) => setEditingProperty(property);
 
   if (loading) {
     return (
@@ -230,8 +182,31 @@ export default function Dashboard() {
           </h1>
           <p className="text-gray-400 text-sm mt-1">Manage your rental properties and leads.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/landlord/inventory" className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 font-semibold rounded-xl transition flex items-center gap-2 text-sm"><ClipboardList size={17} /> Inventory</Link>
+          <Link href="/landlord/rent-notices" className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 font-semibold rounded-xl transition flex items-center gap-2 text-sm"><BadgeDollarSign size={17} /> Rent Notices</Link>
           <Link href="/landlord/viewings" className="px-4 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/20 font-semibold rounded-xl transition flex items-center gap-2 text-sm"><CalendarDays size={17} /> Viewings</Link>
+          <Link
+            href="/landlord/tenant-requests"
+            className="px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 font-semibold rounded-xl transition flex items-center gap-2 text-sm"
+          >
+            <Users size={17} />
+            Tenant Requests
+          </Link>
+          <Link
+            href="/landlord/rent-concerns"
+            className="px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 font-semibold rounded-xl transition flex items-center gap-2 text-sm"
+          >
+            <MessageSquare size={17} />
+            Student Concerns
+          </Link>
+          <Link
+            href="/landlord/review-messages"
+            className="px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 font-semibold rounded-xl transition flex items-center gap-2 text-sm"
+          >
+            <MessageSquare size={17} />
+            Review Discussions
+          </Link>
           <Link
             href="/verification"
             className="px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 font-semibold rounded-xl transition flex items-center gap-2 text-sm"
@@ -339,7 +314,7 @@ export default function Dashboard() {
         
         {properties.length === 0 ? (
           <div className="p-12 text-center bg-[#18181B] rounded-2xl border border-white/10 space-y-4">
-            <p className="text-gray-400">You haven't listed any properties yet.</p>
+            <p className="text-gray-400">You have not listed any properties yet.</p>
             <Link 
               href="/add-property" 
               className="inline-block px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl text-sm transition"
@@ -360,7 +335,7 @@ export default function Dashboard() {
                     </th>
                     <th className="p-4">Property</th>
                     <th className="p-4">Type</th>
-                    <th className="p-4">Rent (Ksh)</th>
+                    <th className="p-4">Semester Rent (Ksh)</th>
                     <th className="p-4">Status</th>
                     <th className="p-4 text-right">Actions</th>
                   </tr>
@@ -422,199 +397,21 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Edit Property Modal */}
       {editingProperty && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-[#121215] border border-white/10 rounded-2xl max-w-2xl w-full p-6 text-gray-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
-              <h3 className="text-xl font-bold text-[#E8DCC4]">Edit Property Listing</h3>
-              <button onClick={() => setEditingProperty(null)} className="text-gray-400 hover:text-white">
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdateProperty} className="space-y-4">
-              {/* Basic Info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Property Title *</label>
-                  <input
-                    type="text"
-                    value={editingProperty.title || ''}
-                    onChange={(e) => setEditingProperty({...editingProperty, title: e.target.value})}
-                    className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#E8DCC4]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">House Type *</label>
-                  <select
-                    value={editingProperty.house_type || 'Bedsitter'}
-                    onChange={(e) => setEditingProperty({...editingProperty, house_type: e.target.value})}
-                    className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#E8DCC4]"
-                  >
-                    <option value="Bedsitter">Bedsitter</option>
-                    <option value="Single Room">Single Room</option>
-                    <option value="1 Bedroom">1 Bedroom</option>
-                    <option value="Hostel">Hostel</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Landmark *</label>
-                  <input
-                    type="text"
-                    value={editingProperty.landmark || ''}
-                    onChange={(e) => setEditingProperty({...editingProperty, landmark: e.target.value})}
-                    className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#E8DCC4]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Walk (Mins) *</label>
-                  <input
-                    type="number"
-                    value={editingProperty.walk_mins || ''}
-                    onChange={(e) => setEditingProperty({...editingProperty, walk_mins: e.target.value})}
-                    className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#E8DCC4]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Vacant Rooms *</label>
-                  <input
-                    type="number"
-                    value={editingProperty.vacant_rooms || ''}
-                    onChange={(e) => setEditingProperty({...editingProperty, vacant_rooms: e.target.value})}
-                    className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#E8DCC4]"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Semester Rent (Ksh) *</label>
-                  <input
-                    type="number"
-                    value={editingProperty.semester_rent || ''}
-                    onChange={(e) => setEditingProperty({...editingProperty, semester_rent: e.target.value})}
-                    className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#E8DCC4]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">WhatsApp Contact *</label>
-                  <input
-                    type="text"
-                    value={editingProperty.whatsapp || ''}
-                    onChange={(e) => setEditingProperty({...editingProperty, whatsapp: e.target.value})}
-                    className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#E8DCC4]"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Amenities & Specifications Section */}
-              <div className="bg-[#1A1A1A] border border-white/10 rounded-xl p-4 space-y-4 mt-4">
-                <h4 className="text-sm font-semibold text-[#E8DCC4] uppercase tracking-wider">Property Amenities & Specifications</h4>
-                
-                {/* Electricity */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
-                  <span className="text-sm font-medium">Electricity Type</span>
-                  <select
-                    value={editingProperty.electricity_type || 'Prepaid Tokens'}
-                    onChange={(e) => setEditingProperty({...editingProperty, electricity_type: e.target.value})}
-                    className="bg-[#121215] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white"
-                  >
-                    <option value="Prepaid Tokens">Prepaid Tokens</option>
-                    <option value="Postpaid / Metered">Postpaid / Metered</option>
-                    <option value="Included in Rent">Included in Rent</option>
-                  </select>
-                </div>
-
-                {/* Water Supply */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
-                  <span className="text-sm font-medium">Water Supply & Cost</span>
-                  <div className="flex gap-2">
-                    <select
-                      value={editingProperty.water_type || 'Tokens / Metered'}
-                      onChange={(e) => setEditingProperty({...editingProperty, water_type: e.target.value})}
-                      className="bg-[#121215] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white"
-                    >
-                      <option value="Tokens / Metered">Tokens / Metered</option>
-                      <option value="Running Water Available">Running Water Available</option>
-                      <option value="Free / Included">Free / Included</option>
-                    </select>
-                    <input
-                      type="text"
-                      placeholder="e.g. Ksh 1000"
-                      value={editingProperty.water_cost || ''}
-                      onChange={(e) => setEditingProperty({...editingProperty, water_cost: e.target.value})}
-                      className="bg-[#121215] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white w-28"
-                    />
-                  </div>
-                </div>
-
-                {/* Security */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
-                  <span className="text-sm font-medium">Security System</span>
-                  <select
-                    value={editingProperty.security_system || 'Security Guard'}
-                    onChange={(e) => setEditingProperty({...editingProperty, security_system: e.target.value})}
-                    className="bg-[#121215] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white"
-                  >
-                    <option value="Security Guard">Security Guard</option>
-                    <option value="Gated Compound">Gated Compound</option>
-                    <option value="CCTV Surveillance">CCTV Surveillance</option>
-                    <option value="None">None</option>
-                  </select>
-                </div>
-
-                {/* Wi-Fi */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">High-Speed Wi-Fi Available</span>
-                  <input
-                    type="checkbox"
-                    checked={editingProperty.wifi_available || false}
-                    onChange={(e) => setEditingProperty({...editingProperty, wifi_available: e.target.checked})}
-                    className="w-5 h-5 accent-[#E8DCC4] rounded"
-                  />
-                </div>
-              </div>
-
-              {/* Description / Notes */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Description / Notes</label>
-                <textarea
-                  rows={3}
-                  value={editingProperty.description || ''}
-                  onChange={(e) => setEditingProperty({...editingProperty, description: e.target.value})}
-                  className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#E8DCC4]"
-                />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setEditingProperty(null)}
-                  className="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition text-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#E8DCC4] text-black font-semibold hover:bg-white transition"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <EditPropertyModal
+          property={editingProperty}
+          verifiedPhone={verifiedPhone}
+          onClose={() => setEditingProperty(null)}
+          onSaved={(updatedProperty) => {
+            setProperties((currentProperties) =>
+              currentProperties.map((property) =>
+                property.id === updatedProperty.id ? updatedProperty : property
+              )
+            );
+            setEditingProperty(null);
+            alert('Property updated successfully!');
+          }}
+        />
       )}
     </div>
   );

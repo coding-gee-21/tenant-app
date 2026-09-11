@@ -2,11 +2,15 @@ import { useState } from 'react';
 import {
   BadgeCheck,
   Building2,
+  ChevronDown,
+  ChevronUp,
   Flag,
   ImageIcon,
+  MessageCircle,
   Star,
   ThumbsUp
 } from 'lucide-react';
+import PrivateMessageThread from './PrivateMessageThread';
 
 function CategoryBadge({ label, value }) {
   if (!value) return null;
@@ -41,6 +45,7 @@ function reviewerName(review) {
 export default function ReviewCard({
   review,
   currentUserId,
+  isReviewAuthor,
   isPropertyOwner,
   onHelpful,
   onReport,
@@ -48,10 +53,15 @@ export default function ReviewCard({
 }) {
   const [response, setResponse] = useState('');
   const [showResponseForm, setShowResponseForm] = useState(false);
+  const [showPrivateThread, setShowPrivateThread] = useState(false);
 
   const landlordResponse = Array.isArray(review.review_responses)
     ? review.review_responses[0]
     : null;
+
+  const canUsePrivateThread =
+    Boolean(currentUserId) &&
+    (isPropertyOwner || isReviewAuthor);
 
   const handleResponse = async () => {
     if (!response.trim()) return;
@@ -216,7 +226,7 @@ export default function ReviewCard({
               Helpful ({review.helpful_count || 0})
             </button>
 
-            {currentUserId && currentUserId !== review.user_id && (
+            {currentUserId && !isReviewAuthor && (
               <button
                 type="button"
                 onClick={() => onReport(review.id)}
@@ -234,6 +244,26 @@ export default function ReviewCard({
                 className="text-xs text-blue-400 hover:text-blue-300"
               >
                 Respond as property manager
+              </button>
+            )}
+
+            {canUsePrivateThread && (
+              <button
+                type="button"
+                onClick={() =>
+                  setShowPrivateThread((current) => !current)
+                }
+                className="inline-flex items-center gap-1.5 text-xs text-emerald-400 transition hover:text-emerald-300"
+              >
+                <MessageCircle size={14} />
+                {showPrivateThread
+                  ? 'Close private discussion'
+                  : 'Private discussion'}
+                {showPrivateThread ? (
+                  <ChevronUp size={14} />
+                ) : (
+                  <ChevronDown size={14} />
+                )}
               </button>
             )}
           </div>
@@ -267,6 +297,24 @@ export default function ReviewCard({
                 </button>
               </div>
             </div>
+          )}
+
+          {showPrivateThread && canUsePrivateThread && (
+            <PrivateMessageThread
+              kind="review"
+              threadId={review.id}
+              viewerRole={isPropertyOwner ? 'landlord' : 'student'}
+              title={
+                isPropertyOwner
+                  ? 'Private discussion with the reviewer'
+                  : 'Private discussion with property management'
+              }
+              emptyText={
+                isPropertyOwner
+                  ? 'No private messages yet. You can ask the reviewer for clarification without exposing their identity publicly.'
+                  : 'No private messages yet. Use this space for a follow-up that should not appear publicly.'
+              }
+            />
           )}
         </div>
       </div>

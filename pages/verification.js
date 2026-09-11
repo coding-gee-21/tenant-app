@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { ShieldCheck, Clock3, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 const statusStyles = {
@@ -14,7 +14,6 @@ const statusStyles = {
 
 export default function VerificationPage() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
   const [landlord, setLandlord] = useState(null);
   const [properties, setProperties] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -24,15 +23,13 @@ export default function VerificationPage() {
   const [propertyId, setPropertyId] = useState('');
   const [message, setMessage] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
     const currentUser = sessionData?.session?.user;
     if (!currentUser) {
       router.replace('/auth');
       return;
     }
-    setUser(currentUser);
-
     const [{ data: landlordData }, { data: propertyData }, requestResponse] = await Promise.all([
       supabase.from('landlords').select('*').eq('id', currentUser.id).maybeSingle(),
       supabase.from('properties').select('id, title, landmark, verification_status, is_verified').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
@@ -49,9 +46,12 @@ export default function VerificationPage() {
       phone_number: landlordData?.whatsapp_number || ''
     }));
     setLoading(false);
-  };
+  }, [router]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(load, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const submit = async (verificationType) => {
     setSubmitting(true);
