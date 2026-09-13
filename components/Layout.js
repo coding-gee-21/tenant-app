@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import Head from 'next/head';
 import { supabase } from '../lib/supabaseClient';
 import { useRouter } from 'next/router';
 import { useEffect, useState, useRef } from 'react';
 import { Home, LayoutDashboard, PlusCircle, LogOut, User, Menu, X, Building2, MessageSquare, Search, Heart } from 'lucide-react';
+import CUEAFBrand from './CUEAFBrand';
+import StudentSafetyWarning from './StudentSafetyWarning';
 
 export default function Layout({ children }) {
   const router = useRouter();
@@ -12,6 +13,11 @@ export default function Layout({ children }) {
   const [profile, setProfile] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const sidebarRef = useRef(null);
+
+  const nonStudentRoutes = ['/admin', '/landlord', '/add-property', '/phone-verification'];
+  const showStudentSafetyWarning = router.pathname !== '/' && !nonStudentRoutes.some(
+    (route) => router.pathname === route || router.pathname.startsWith(`${route}/`)
+  );
 
   useEffect(() => {
     const loadProfile = async (session) => {
@@ -55,16 +61,16 @@ export default function Layout({ children }) {
     <div className="min-h-screen bg-[#1A1A1A] text-gray-200 font-sans flex flex-col">
       {/* Comprehensive SEO & Browser Meta Tags */}
       <Head>
-        <title>Chuka Rentals | Student Hostels & Housing Near Chuka University</title>
+        <title>CUEAF | Student Housing Near Chuka University</title>
         <meta name="description" content="Find verified student apartments, hostels, and connect directly with landlords near Chuka University, Kenya." />
         
         {/* Google Search Console Verification Tag */}
         <meta name="google-site-verification" content="mXPT2Qx05qcwiekhFOlAV0qYHwl81lR0469oVGdub_4" />
         
-        <link rel="icon" href="/logo.png" type="image/png" />
+        <link rel="icon" href="/chuka-university-crest.jpeg" type="image/jpeg" />
         
         {/* Open Graph / Social Sharing */}
-        <meta property="og:title" content="Chuka Rentals | Student Hostels & Housing Near Chuka University" />
+        <meta property="og:title" content="CUEAF | Student Housing Near Chuka University" />
         <meta property="og:description" content="Find verified student apartments, hostels, and connect directly with landlords near Chuka University, Kenya." />
         <meta property="og:url" content="https://tenant-app-neon.vercel.app" />
         <meta property="og:type" content="website" />
@@ -80,16 +86,9 @@ export default function Layout({ children }) {
         >
           <Menu size={22} />
         </button>
-        <Link href="/" className="ml-4 flex items-center gap-3">
-          <Image 
-            src="/logo.png" 
-            alt="Tenant Logo" 
-            width={32} 
-            height={32} 
-            className="rounded-md object-contain"
-          />
-          <span className="text-2xl font-bold text-[#E8DCC4] tracking-wider">Chuka Rentals</span>
-        </Link>
+        <div className="ml-4 flex items-center gap-3">
+          <CUEAFBrand />
+        </div>
       </header>
 
       {/* Backdrop Overlay */}
@@ -105,16 +104,9 @@ export default function Layout({ children }) {
         }`}
       >
         <div className="p-6 flex items-center justify-between">
-          <Link href="/" onClick={() => setIsOpen(false)} className="flex items-center gap-3">
-            <Image 
-              src="/logo.png" 
-              alt="Tenant Logo" 
-              width={28} 
-              height={28} 
-              className="rounded-md object-contain"
-            />
-            <span className="text-xl font-bold text-[#E8DCC4] tracking-wider">Chuka Rentals</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <CUEAFBrand compact />
+          </div>
           <button
             onClick={() => setIsOpen(false)}
             className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white"
@@ -163,7 +155,7 @@ export default function Layout({ children }) {
             </button>
           ) : (
             <div className="px-4 py-2 text-xs text-gray-500">
-              {new Date().getFullYear()} Chuka Rentals. All rights reserved.
+              {new Date().getFullYear()} CUEAF. All rights reserved.
             </div>
           )}
         </div>
@@ -172,11 +164,12 @@ export default function Layout({ children }) {
       {/* Main Content Area */}
       <main className="flex-1 pt-16 min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {showStudentSafetyWarning && <StudentSafetyWarning />}
           {children}
         </div>
 
         <footer className="mt-12 py-6 text-center text-gray-500 text-sm border-t border-gray-800">
-          © {new Date().getFullYear()} Chuka Rentals. The smarter way to rent.
+          © {new Date().getFullYear()} CUEAF. Safer student housing decisions.
         </footer>
       </main>
       <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-white/10 bg-[#121215]/95 px-2 py-2 backdrop-blur-xl md:hidden">

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  AlertTriangle,
   Building2,
   ChevronDown,
   Clock3,
@@ -20,6 +19,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import PropertyCard from '../components/PropertyCard';
+import StudentSafetyWarning from '../components/StudentSafetyWarning';
 
 const heroImages = [
   '/assets/hero/hero1.jpg',
@@ -662,23 +662,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Warning Banner */}
-      <div className="my-6 flex items-start gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5">
-        <AlertTriangle
-          className="mt-0.5 shrink-0 text-amber-400"
-          size={22}
-        />
-        <div className="space-y-1">
-          <h4 className="text-sm font-semibold text-amber-400 sm:text-base">
-            Before you pay anyone
-          </h4>
-          <p className="text-xs leading-relaxed text-gray-300 sm:text-sm">
-            Never send rent or a deposit before you have seen the room in
-            person. If anything here is wrong reach us through{' '}
-            <strong className="font-medium text-white">0708797271</strong>.
-          </p>
-        </div>
-      </div>
+      {/* Homepage warning remains in the original warning position */}
+      <StudentSafetyWarning />
 
       {/* Property Listings Grid Section */}
       <section id="listings" className="space-y-6">
