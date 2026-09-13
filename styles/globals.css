@@ -25,48 +25,27 @@
   color: #fff7ed;
 }
 
-.cueaf-brand__crest-wrap {
+.cueaf-brand__mark-wrap {
   display: grid;
   place-items: center;
-  width: 2.85rem;
-  height: 2.85rem;
+  width: 5.6rem;
+  height: 2.8rem;
   flex: 0 0 auto;
-  overflow: hidden;
-  border: 1px solid rgba(250, 204, 21, 0.48);
-  border-radius: 9999px;
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.08);
+  border-radius: 0.7rem;
+  transition: background-color 160ms ease, transform 160ms ease;
 }
 
-.cueaf-brand__crest {
+.cueaf-brand__home:hover .cueaf-brand__mark-wrap,
+.cueaf-brand__home:focus-visible .cueaf-brand__mark-wrap {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+.cueaf-brand__mark {
   width: 100%;
   height: 100%;
   object-fit: contain;
-}
-
-.cueaf-brand__housing {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 2.3rem;
-  height: 2.3rem;
-  margin-left: -0.95rem;
-  flex: 0 0 auto;
-  border: 1px solid rgba(96, 165, 250, 0.45);
-  border-radius: 0.75rem;
-  color: #60a5fa;
-  background: linear-gradient(145deg, #17202d, #0a0e14);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.38);
-}
-
-.cueaf-brand__pin {
-  position: absolute;
-  right: -0.25rem;
-  bottom: -0.2rem;
-  padding: 0.08rem;
-  border-radius: 9999px;
-  color: #ffffff;
-  background: #ef4444;
+  filter: drop-shadow(0 7px 12px rgba(0, 0, 0, 0.34));
 }
 
 .cueaf-brand__wordmark {
@@ -90,9 +69,9 @@
   white-space: nowrap;
 }
 
-.cueaf-brand--compact .cueaf-brand__crest-wrap {
-  width: 2.55rem;
-  height: 2.55rem;
+.cueaf-brand--compact .cueaf-brand__mark-wrap {
+  width: 4.7rem;
+  height: 2.35rem;
 }
 
 .cueaf-brand--compact .cueaf-brand__wordmark strong {
@@ -274,8 +253,9 @@
 }
 
 @media (max-width: 390px) {
-  .cueaf-brand__housing {
-    display: none;
+  .cueaf-brand__mark-wrap {
+    width: 4rem;
+    height: 2rem;
   }
 
   .cueaf-brand__wordmark strong {

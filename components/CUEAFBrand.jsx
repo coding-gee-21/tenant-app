@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { Building2, ChevronDown, MapPin } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 export default function CUEAFBrand({ compact = false }) {
   const [expanded, setExpanded] = useState(false);
@@ -9,10 +9,7 @@ export default function CUEAFBrand({ compact = false }) {
 
   useEffect(() => {
     const closeOnOutsideClick = (event) => {
-      if (
-        brandRef.current &&
-        !brandRef.current.contains(event.target)
-      ) {
+      if (brandRef.current && !brandRef.current.contains(event.target)) {
         setExpanded(false);
       }
     };
@@ -27,15 +24,8 @@ export default function CUEAFBrand({ compact = false }) {
     document.addEventListener('keydown', closeOnEscape);
 
     return () => {
-      document.removeEventListener(
-        'mousedown',
-        closeOnOutsideClick
-      );
-
-      document.removeEventListener(
-        'keydown',
-        closeOnEscape
-      );
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
     };
   }, []);
 
@@ -46,36 +36,22 @@ export default function CUEAFBrand({ compact = false }) {
   return (
     <span
       ref={brandRef}
-      className={`cueaf-brand ${
-        compact ? 'cueaf-brand--compact' : ''
-      }`}
+      className={`cueaf-brand ${compact ? 'cueaf-brand--compact' : ''}`}
       aria-label="Chuka University External Accommodation Facilities"
     >
       <Link
         href="/"
         className="cueaf-brand__home"
-        aria-label="CUEAF home"
+        aria-label="Go to the CUEAF home page"
       >
-        <span className="cueaf-brand__crest-wrap">
+        <span className="cueaf-brand__mark-wrap">
           <Image
-            src="/chuka-university-crest.jpeg"
-            alt="Chuka University crest"
-            width={44}
-            height={44}
-            className="cueaf-brand__crest"
+            src="/cueaf-housing-mark.png"
+            alt="CUEAF housing and location symbol"
+            width={100}
+            height={40}
+            className="cueaf-brand__mark"
             priority
-          />
-        </span>
-
-        <span
-          className="cueaf-brand__housing"
-          aria-hidden="true"
-        >
-          <Building2 size={22} />
-
-          <MapPin
-            size={13}
-            className="cueaf-brand__pin"
           />
         </span>
       </Link>
@@ -83,9 +59,7 @@ export default function CUEAFBrand({ compact = false }) {
       <button
         type="button"
         className="cueaf-brand__wordmark"
-        onClick={() =>
-          setExpanded((current) => !current)
-        }
+        onClick={() => setExpanded((current) => !current)}
         aria-expanded={expanded}
         aria-controls={expandedNameId}
         aria-label={
@@ -98,30 +72,25 @@ export default function CUEAFBrand({ compact = false }) {
 
         <ChevronDown
           size={15}
-          aria-hidden="true"
           className={
             expanded
               ? 'cueaf-brand__chevron cueaf-brand__chevron--open'
               : 'cueaf-brand__chevron'
           }
+          aria-hidden="true"
         />
 
-        {!compact && (
-          <small>Click to reveal the full name</small>
-        )}
+        {!compact && <small>Click to reveal the full name</small>}
       </button>
 
       <span
         id={expandedNameId}
         className={`cueaf-brand__expanded-name ${
-          expanded
-            ? 'cueaf-brand__expanded-name--visible'
-            : ''
+          expanded ? 'cueaf-brand__expanded-name--visible' : ''
         }`}
         aria-hidden={!expanded}
       >
         <small>CUEAF means</small>
-
         <strong>
           Chuka University External Accommodation Facilities
         </strong>
