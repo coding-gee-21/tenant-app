@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
+import {
+  estimateCampusTravel,
+  formatDistance,
+} from '../lib/campusDistance';
+import {
+  HOSTEL_AREAS,
+  optionLabel,
+} from '../lib/hostelSearchConfig';
 
 const LocationPicker = dynamic(
   () => import('../components/LocationPicker'),
@@ -24,13 +32,13 @@ export default function AddProperty() {
   // Form Fields
   const [title, setTitle] = useState('');
   const [houseType, setHouseType] = useState('Bedsitter');
-  const [landmark, setLandmark] = useState('');
+  const [area, setArea] = useState('');
+  const [customArea, setCustomArea] = useState('');
   const [location, setLocation] = useState({
     lat: null,
     lng: null,
     accuracy: null,
   });
-  const [walkingTime, setWalkingTime] = useState('');
   const [vacantRooms, setVacantRooms] = useState('');
   const [price, setPrice] = useState(''); // Semester rent
   const [whatsapp, setWhatsapp] = useState('');
@@ -128,6 +136,18 @@ export default function AddProperty() {
     const latitude = Number(location.lat);
     const longitude = Number(location.lng);
 
+    if (!area) {
+      setErrorMsg('Please select the hostel area.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (area === 'other' && !customArea.trim()) {
+      setErrorMsg('Please enter the hostel area name.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     if (
       location.lat === null ||
       location.lng === null ||
@@ -208,7 +228,12 @@ export default function AddProperty() {
       const propertyPayload = {
         title,
         house_type: houseType,
-        landmark,
+        area,
+        custom_area: area === 'other' ? customArea.trim() : null,
+        landmark:
+          area === 'other'
+            ? customArea.trim()
+            : optionLabel(HOSTEL_AREAS, area),
         latitude,
         longitude,
         location_accuracy_meters:
@@ -216,7 +241,6 @@ export default function AddProperty() {
             ? null
             : Number(location.accuracy),
         location_updated_at: new Date().toISOString(),
-        walk_mins: parseInt(walkingTime, 10),
         vacant_rooms: parseInt(vacantRooms, 10),
         semester_rent: parseFloat(price),
         whatsapp: verifiedPhone,
@@ -314,31 +338,46 @@ export default function AddProperty() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Location/Landmark *
+              <label className="mb-1 block text-sm font-medium text-gray-300">
+                Hostel area *
               </label>
-              <input
-                type="text"
+              <select
                 required
-                placeholder="e.g., Ndagani"
-                value={landmark}
-                onChange={(e) => setLandmark(e.target.value)}
-                className="w-full bg-[#18181B] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500"
-              />
+                value={area}
+                onChange={(event) => {
+                  setArea(event.target.value);
+                  if (event.target.value !== 'other') setCustomArea('');
+                }}
+                className="w-full rounded-xl border border-white/10 bg-[#18181B] px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Select hostel area</option>
+                {HOSTEL_AREAS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Walk (Mins) *</label>
-              <input
-                type="number"
-                required
-                placeholder="5"
-                value={walkingTime}
-                onChange={(e) => setWalkingTime(e.target.value)}
-                className="w-full bg-[#18181B] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500"
-              />
-            </div>
+            {area === 'other' && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Exact area/location *
+                </label>
+                <input
+                  required
+                  maxLength={80}
+                  value={customArea}
+                  onChange={(event) => setCustomArea(event.target.value)}
+                  placeholder="Enter the exact area or location"
+                  className="w-full rounded-xl border border-white/10 bg-[#18181B] px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
               <label className="block text-sm font-medium mb-2">Vacant Rooms *</label>
               <input
@@ -373,6 +412,14 @@ export default function AddProperty() {
               <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-200">
                 Hostel location selected: {Number(location.lat).toFixed(6)},{' '}
                 {Number(location.lng).toFixed(6)}
+                {(() => {
+                  const travel = estimateCampusTravel(location.lat, location.lng);
+                  return travel ? (
+                    <span className="mt-1 block text-emerald-100">
+                      Automatic estimate from Gate A: {formatDistance(travel.distanceKm)} · ~{travel.walkingMinutes} min walk
+                    </span>
+                  ) : null;
+                })()}
               </div>
             )}
           </div>

@@ -7,9 +7,16 @@ import {
 } from '@react-google-maps/api';
 import {
   AlertCircle,
+  Clock3,
   Crosshair,
   MapPin,
+  Route,
+  School,
 } from 'lucide-react';
+import {
+  estimateCampusTravel,
+  formatDistance,
+} from '../lib/campusDistance';
 
 const DEFAULT_CENTER = {
   lat: -0.3325,
@@ -291,6 +298,7 @@ function GoogleLocationPicker({ apiKey, value, onLocationSelect }) {
 
 export default function LocationPicker({ value, onLocationSelect }) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const travel = estimateCampusTravel(value?.lat, value?.lng);
 
   return (
     <section className="space-y-4">
@@ -319,6 +327,23 @@ export default function LocationPicker({ value, onLocationSelect }) {
           value={value}
           onLocationSelect={onLocationSelect}
         />
+      )}
+
+      {travel && (
+        <div className="grid gap-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 sm:grid-cols-3">
+          <div className="flex items-center gap-2 text-sm text-gray-300">
+            <School size={16} className="shrink-0 text-red-400" />
+            From Chuka University
+          </div>
+          <div className="flex items-center gap-2 text-sm text-blue-200">
+            <Route size={16} className="shrink-0 text-blue-400" />
+            {formatDistance(travel.distanceKm)} estimated distance
+          </div>
+          <div className="flex items-center gap-2 text-sm text-amber-200">
+            <Clock3 size={16} className="shrink-0 text-amber-400" />
+            ~{travel.walkingMinutes} minutes walking
+          </div>
+        </div>
       )}
     </section>
   );

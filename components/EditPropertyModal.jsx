@@ -3,6 +3,15 @@ import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import { ImagePlus, Save, Trash2, X } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import {
+  estimateCampusTravel,
+  formatDistance,
+} from '../lib/campusDistance';
+import {
+  HOSTEL_AREAS,
+  optionLabel,
+  propertyAreaValue,
+} from '../lib/hostelSearchConfig';
 
 const LocationPicker = dynamic(() => import('./LocationPicker'), {
   ssr: false,
@@ -14,15 +23,20 @@ const LocationPicker = dynamic(() => import('./LocationPicker'), {
 });
 
 function initialForm(property) {
+  const resolvedArea = propertyAreaValue(property);
+
   return {
     title: property.title || '',
     house_type: property.house_type || 'Bedsitter',
-    landmark: property.landmark || '',
+    area: resolvedArea,
+    custom_area:
+      resolvedArea === 'other'
+        ? property.custom_area || property.landmark || ''
+        : '',
     latitude: property.latitude ?? null,
     longitude: property.longitude ?? null,
     location_accuracy_meters:
       property.location_accuracy_meters ?? null,
-    walk_mins: property.walk_mins ?? '',
     vacant_rooms: property.vacant_rooms ?? '',
     semester_rent:
       property.semester_rent ?? property.price ?? property.rent ?? '',
@@ -148,7 +162,6 @@ export default function EditPropertyModal({
 
     const latitude = Number(form.latitude);
     const longitude = Number(form.longitude);
-    const walkMinutes = Number(form.walk_mins);
     const vacantRooms = Number(form.vacant_rooms);
     const semesterRent = Number(form.semester_rent);
     const optionalCosts = [
@@ -160,8 +173,18 @@ export default function EditPropertyModal({
       .filter((value) => value !== '' && value !== null)
       .map(Number);
 
-    if (!form.title.trim() || !form.landmark.trim()) {
-      setErrorMessage('The property title and landmark are required.');
+    if (!form.title.trim()) {
+      setErrorMessage('The property title is required.');
+      return;
+    }
+
+    if (!form.area) {
+      setErrorMessage('Select the hostel area.');
+      return;
+    }
+
+    if (form.area === 'other' && !form.custom_area.trim()) {
+      setErrorMessage('Enter the hostel area name.');
       return;
     }
 
@@ -183,11 +206,6 @@ export default function EditPropertyModal({
       setErrorMessage(
         'Select and confirm the correct hostel location before saving.'
       );
-      return;
-    }
-
-    if (!Number.isFinite(walkMinutes) || walkMinutes < 0) {
-      setErrorMessage('Walking time must be zero or a positive number.');
       return;
     }
 
@@ -256,7 +274,13 @@ export default function EditPropertyModal({
       const payload = {
         title: form.title.trim(),
         house_type: form.house_type,
-        landmark: form.landmark.trim(),
+        area: form.area,
+        custom_area:
+          form.area === 'other' ? form.custom_area.trim() : null,
+        landmark:
+          form.area === 'other'
+            ? form.custom_area.trim()
+            : optionLabel(HOSTEL_AREAS, form.area),
         latitude,
         longitude,
         location_accuracy_meters:
@@ -264,7 +288,6 @@ export default function EditPropertyModal({
             ? null
             : Number(form.location_accuracy_meters),
         location_updated_at: now,
-        walk_mins: walkMinutes,
         vacant_rooms: vacantRooms,
         semester_rent: semesterRent,
         whatsapp: contactNumber,
@@ -321,6 +344,10 @@ export default function EditPropertyModal({
     lng: form.longitude,
     accuracy: form.location_accuracy_meters,
   };
+  const campusTravel = estimateCampusTravel(
+    form.latitude,
+    form.longitude
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
@@ -356,11 +383,11 @@ export default function EditPropertyModal({
             <div>
               <h3 className="font-bold text-white">Basic information</h3>
               <p className="mt-1 text-sm text-gray-400">
-                Keep the rent, vacancy and walking information accurate.
+                Keep the rent, vacancy, area and map location accurate.
               </p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4">
               <label className="text-sm font-medium">
                 Property / hostel title *
                 <input
@@ -395,27 +422,46 @@ export default function EditPropertyModal({
               </label>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4">
               <label className="text-sm font-medium">
-                Landmark *
-                <input
+                Hostel area *
+                <select
                   required
-                  value={form.landmark}
-                  onChange={(event) => update('landmark', event.target.value)}
+                  value={form.area}
+                  onChange={(event) => {
+                    update('area', event.target.value);
+                    if (event.target.value !== 'other') {
+                      update('custom_area', '');
+                    }
+                  }}
                   className={`${inputClass} mt-2`}
-                />
+                >
+                  <option value="">Select hostel area</option>
+                  {HOSTEL_AREAS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </label>
-              <label className="text-sm font-medium">
-                Walk (minutes) *
-                <input
-                  required
-                  min="0"
-                  type="number"
-                  value={form.walk_mins}
-                  onChange={(event) => update('walk_mins', event.target.value)}
-                  className={`${inputClass} mt-2`}
-                />
-              </label>
+              {form.area === 'other' && (
+                <label className="text-sm font-medium">
+                  Exact area/location *
+                  <input
+                    required
+                    maxLength={80}
+                    value={form.custom_area}
+                    onChange={(event) =>
+                      update('custom_area', event.target.value)
+                    }
+                    placeholder="Enter the exact area or location"
+                    className={`${inputClass} mt-2`}
+                  />
+                </label>
+              )}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
               <label className="text-sm font-medium">
                 Vacant rooms *
                 <input
@@ -455,6 +501,11 @@ export default function EditPropertyModal({
               <p className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-200">
                 Selected hostel location: {Number(form.latitude).toFixed(6)},{' '}
                 {Number(form.longitude).toFixed(6)}
+                {campusTravel && (
+                  <span className="mt-1 block text-emerald-100">
+                    Automatic estimate from Gate A: {formatDistance(campusTravel.distanceKm)} · ~{campusTravel.walkingMinutes} min walk
+                  </span>
+                )}
               </p>
             )}
           </section>

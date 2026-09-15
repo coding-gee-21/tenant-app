@@ -16,6 +16,11 @@ function generateSiteMap(properties) {
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>${BASE_URL}/map</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>${BASE_URL}/safety</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>

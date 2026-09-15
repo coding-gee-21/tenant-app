@@ -18,7 +18,7 @@ export default function Dashboard() {
   // Edit Modal State
   const [editingProperty, setEditingProperty] = useState(null);
   const listingQuality = (property) => {
-    const checks = [property.title, property.landmark, property.walk_mins, property.semester_rent || property.price || property.rent, property.description, property.whatsapp, Array.isArray(property.images) ? property.images.length >= 3 : Boolean(property.images), property.water_type, property.security_system];
+    const checks = [property.title, property.area, property.landmark, property.latitude != null && property.longitude != null, property.semester_rent || property.price || property.rent, property.description, property.whatsapp, Array.isArray(property.images) ? property.images.length >= 3 : Boolean(property.images), property.water_type, property.security_system];
     return Math.round(checks.filter(Boolean).length / checks.length * 100);
   };
 

@@ -9,6 +9,8 @@ import { Eye, Bookmark, Flag, CheckCircle, CalendarDays, UserRound, ShieldCheck,
 import ReviewSection from '../../components/ReviewSection';
 import ViewingRequestModal from '../../components/ViewingRequestModal';
 import { useToast } from '../../components/Toast';
+import { estimateCampusTravel, formatDistance } from '../../lib/campusDistance';
+import { propertyLocationLabel } from '../../lib/hostelSearchConfig';
 
 const PropertyMapViewer = dynamic(
   () => import('../../components/PropertyMapViewer'),
@@ -370,6 +372,8 @@ export default function PropertyDetail() {
         ) * 100
       : 0;
   const fixedCharges = Number(property.deposit_amount || 0) + Number(property.electricity_cost || 0) + Number(property.wifi_cost || 0);
+  const campusTravel = estimateCampusTravel(property.latitude, property.longitude);
+  const locationLabel = propertyLocationLabel(property);
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 text-white space-y-6">
@@ -406,7 +410,8 @@ export default function PropertyDetail() {
             </div>
             </div>
             <p className="text-gray-400 text-sm">
-              {property.house_type || 'Bedsitter'} • 📍 {property.landmark || property.campus_landmark || 'Ndagani'}
+              {property.house_type || 'Bedsitter'} • 📍{' '}
+              {locationLabel}
             </p>
 
             {property.is_flagged && (
@@ -670,7 +675,12 @@ export default function PropertyDetail() {
             {/* Walking Time */}
             <div className="bg-[#121215] border border-white/10 rounded-2xl p-5 flex flex-col justify-between">
               <span className="text-xs text-gray-400 uppercase tracking-wider">Walking Time</span>
-              <span className="text-lg font-semibold text-white mt-2">{property.walk_mins} Mins to Campus</span>
+              <span className="text-lg font-semibold text-white mt-2">
+                {campusTravel
+                  ? `~${campusTravel.walkingMinutes} mins · ${formatDistance(campusTravel.distanceKm)}`
+                  : 'Map location unavailable'}
+              </span>
+              <span className="mt-1 text-xs text-gray-500">Automatic estimate from Gate A</span>
             </div>
 
             {/* Electricity */}

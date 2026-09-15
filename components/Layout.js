@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { supabase } from '../lib/supabaseClient';
 import { useRouter } from 'next/router';
 import { useEffect, useState, useRef } from 'react';
-import { Home, LayoutDashboard, PlusCircle, LogOut, User, Menu, X, Building2, MessageSquare, Search, Heart } from 'lucide-react';
+import { Home, LayoutDashboard, PlusCircle, LogOut, User, Menu, X, Building2, MessageSquare, Search, Heart, MapPinned } from 'lucide-react';
 import CUEAFBrand from './CUEAFBrand';
 import StudentSafetyWarning from './StudentSafetyWarning';
 
@@ -15,9 +15,11 @@ export default function Layout({ children }) {
   const sidebarRef = useRef(null);
 
   const nonStudentRoutes = ['/admin', '/landlord', '/add-property', '/phone-verification'];
-  const showStudentSafetyWarning = router.pathname !== '/' && !nonStudentRoutes.some(
-    (route) => router.pathname === route || router.pathname.startsWith(`${route}/`)
-  );
+  const showStudentSafetyWarning =
+    router.pathname !== '/' &&
+    !nonStudentRoutes.some((route) =>
+      router.pathname === route || router.pathname.startsWith(`${route}/`)
+    );
 
   useEffect(() => {
     const loadProfile = async (session) => {
@@ -120,6 +122,7 @@ export default function Layout({ children }) {
             <Home size={20} /> Home
           </Link>
           <Link href="/rentals" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition"><Search size={20} /> All Rentals</Link>
+          <Link href="/map" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition"><MapPinned size={20} /> Hostel Map</Link>
           {user ? (
             <>
               <Link href="/account" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition">
@@ -172,9 +175,10 @@ export default function Layout({ children }) {
           © {new Date().getFullYear()} CUEAF. Safer student housing decisions.
         </footer>
       </main>
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-white/10 bg-[#121215]/95 px-2 py-2 backdrop-blur-xl md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/10 bg-[#121215]/95 px-2 py-2 backdrop-blur-xl md:hidden">
         <Link href="/" className="flex flex-col items-center gap-1 text-[10px] text-gray-300"><Home size={19} />Home</Link>
         <Link href="/rentals" className="flex flex-col items-center gap-1 text-[10px] text-gray-300"><Search size={19} />Search</Link>
+        <Link href="/map" className="flex flex-col items-center gap-1 text-[10px] text-gray-300"><MapPinned size={19} />Map</Link>
         <Link href={user ? '/account/saved' : '/auth?returnTo=/account/saved'} className="flex flex-col items-center gap-1 text-[10px] text-gray-300"><Heart size={19} />Saved</Link>
         <Link href={user ? '/account' : '/auth?returnTo=/account'} className="flex flex-col items-center gap-1 text-[10px] text-gray-300"><User size={19} />Account</Link>
       </nav>

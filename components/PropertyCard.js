@@ -9,12 +9,18 @@ import {
   Flag,
   MapPin,
   Phone,
+  Route,
   Shield,
   Star,
   ThumbsUp
 } from 'lucide-react';
 import { GitCompareArrows, Heart } from 'lucide-react';
 import { handleWhatsAppClick } from '../utils/trackLead';
+import {
+  estimateCampusTravel,
+  formatDistance,
+} from '../lib/campusDistance';
+import { propertyLocationLabel } from '../lib/hostelSearchConfig';
 
 const getCardImage = (property) => {
   let imgPath = '';
@@ -53,8 +59,6 @@ export default function PropertyCard({ property, compareSelected = false, onTogg
     semester_rent, 
     price, 
     rent, 
-    landmark, 
-    walk_mins: walk_time, 
     whatsapp,
     vacant_rooms,
     is_verified,
@@ -80,6 +84,11 @@ export default function PropertyCard({ property, compareSelected = false, onTogg
 
   const cleanPhone = whatsapp ? whatsapp.replace(/[^0-9]/g, '') : '';
   const displayPrice = semester_rent ?? price ?? rent ?? 0;
+  const campusTravel = estimateCampusTravel(
+    property.latitude,
+    property.longitude
+  );
+  const locationLabel = propertyLocationLabel(property);
   const [referenceTime] = useState(() => Date.now());
 
   const vacancyAgeInDays = last_vacancy_update
@@ -182,17 +191,23 @@ export default function PropertyCard({ property, compareSelected = false, onTogg
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-xs text-gray-400 pt-1">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-400 pt-1">
             <div className="flex items-center gap-1">
               <MapPin size={14} className="text-blue-400" />
-              <span>{landmark || 'Ndagani'}</span>
+              <span>{locationLabel}</span>
             </div>
-            {walk_time && (
-              <div className="flex items-center gap-1">
-                <Clock size={14} className="text-amber-400" />
-                <span>{walk_time} min walk</span>
-              </div>
-            )}
+            {campusTravel ? (
+              <>
+                <div className="flex items-center gap-1 text-blue-200">
+                  <Route size={14} className="text-blue-400" />
+                  <span>{formatDistance(campusTravel.distanceKm)} from campus</span>
+                </div>
+                <div className="flex items-center gap-1 text-amber-200">
+                  <Clock size={14} className="text-amber-400" />
+                  <span>~{campusTravel.walkingMinutes} min walk</span>
+                </div>
+              </>
+            ) : null}
           </div>
 
           {review_count > 0 && (

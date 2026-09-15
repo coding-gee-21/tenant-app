@@ -6,10 +6,19 @@ import {
   useLoadScript,
 } from '@react-google-maps/api';
 import {
+  Clock3,
   ExternalLink,
   MapPin,
   Navigation,
+  Route,
+  School,
 } from 'lucide-react';
+import {
+  campusDirectionsUrl,
+  CHUKA_UNIVERSITY_REFERENCE,
+  estimateCampusTravel,
+  formatDistance,
+} from '../lib/campusDistance';
 
 const MAP_CONTAINER_STYLE = {
   width: '100%',
@@ -40,9 +49,10 @@ function getCoordinates(latitude, longitude) {
 
 function LocationActions({ coordinates }) {
   const destination = `${coordinates.lat},${coordinates.lng}`;
-  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-    destination
-  )}`;
+  const directionsUrl = campusDirectionsUrl(
+    coordinates.lat,
+    coordinates.lng
+  );
   const locationUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     destination
   )}`;
@@ -56,7 +66,7 @@ function LocationActions({ coordinates }) {
         className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-500"
       >
         <Navigation size={17} />
-        Get directions
+        Directions from Chuka University
       </a>
 
       <a
@@ -106,6 +116,13 @@ function GooglePropertyMap({ apiKey, coordinates }) {
     []
   );
 
+  function fitCampusAndHostel(map) {
+    const bounds = new google.maps.LatLngBounds();
+    bounds.extend(CHUKA_UNIVERSITY_REFERENCE);
+    bounds.extend(coordinates);
+    map.fitBounds(bounds, 60);
+  }
+
   if (loadError) return <MapFallback coordinates={coordinates} />;
 
   if (!isLoaded) {
@@ -120,11 +137,21 @@ function GooglePropertyMap({ apiKey, coordinates }) {
     <div className="overflow-hidden rounded-xl border border-white/10">
       <GoogleMap
         mapContainerStyle={MAP_CONTAINER_STYLE}
-        zoom={16}
-        center={coordinates}
+        zoom={14}
+        center={CHUKA_UNIVERSITY_REFERENCE}
+        onLoad={fitCampusAndHostel}
         options={options}
       >
-        <AdvancedMapMarker position={coordinates} />
+        <AdvancedMapMarker
+          position={CHUKA_UNIVERSITY_REFERENCE}
+          title="Chuka University campus reference point"
+          variant="campus"
+        />
+        <AdvancedMapMarker
+          position={coordinates}
+          title="Hostel location"
+          selected
+        />
       </GoogleMap>
     </div>
   );
@@ -133,11 +160,46 @@ function GooglePropertyMap({ apiKey, coordinates }) {
 export default function PropertyMapViewer({ latitude, longitude }) {
   const coordinates = getCoordinates(latitude, longitude);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const travel = estimateCampusTravel(latitude, longitude);
 
   if (!coordinates) return null;
 
   return (
     <div className="space-y-4">
+      {travel && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+            <span className="flex items-center gap-2 text-xs text-gray-400">
+              <School size={15} className="text-red-400" />
+              Fixed starting point
+            </span>
+            <strong className="mt-2 block text-sm text-white">
+              Chuka University
+            </strong>
+          </div>
+
+          <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+            <span className="flex items-center gap-2 text-xs text-gray-400">
+              <Route size={15} className="text-blue-400" />
+              Approximate distance
+            </span>
+            <strong className="mt-2 block text-lg text-blue-200">
+              {formatDistance(travel.distanceKm)}
+            </strong>
+          </div>
+
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+            <span className="flex items-center gap-2 text-xs text-gray-400">
+              <Clock3 size={15} className="text-amber-400" />
+              Approximate walk
+            </span>
+            <strong className="mt-2 block text-lg text-amber-200">
+              ~{travel.walkingMinutes} minutes
+            </strong>
+          </div>
+        </div>
+      )}
+
       {apiKey ? (
         <GooglePropertyMap
           apiKey={apiKey}
@@ -150,8 +212,9 @@ export default function PropertyMapViewer({ latitude, longitude }) {
       <LocationActions coordinates={coordinates} />
 
       <p className="text-xs leading-5 text-gray-500">
-        Directions open in Google Maps using the hostel as the destination.
-        Chuka Rentals does not store the student&apos;s live location.
+        The distance and walking time are coordinate-based estimates. Google
+        Maps opens with Chuka University as the fixed origin and the hostel as
+        the destination. CUEAF does not store the student&apos;s live location.
       </p>
     </div>
   );
