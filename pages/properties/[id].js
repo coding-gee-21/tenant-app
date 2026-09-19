@@ -389,6 +389,27 @@ export default function PropertyDetail() {
           {isBookmarked ? 'Saved' : 'Save Property'}
         </button>
       </div>
+
+      {property.video_url && (
+        <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#121215] shadow-xl">
+          <div className="border-b border-white/10 px-5 py-4">
+            <h2 className="font-bold text-white">Property video tour</h2>
+            <p className="mt-1 text-sm text-gray-400">
+              Use this walkthrough as a preview, then visit and verify the
+              property physically before making any payment.
+            </p>
+          </div>
+          <video
+            src={property.video_url}
+            controls
+            playsInline
+            preload="metadata"
+            className="max-h-[36rem] w-full bg-black object-contain"
+          >
+            Your browser does not support video playback.
+          </video>
+        </section>
+      )}
       
       <div className="bg-[#18181B] border border-white/10 rounded-2xl shadow-xl p-6 md:p-8 space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start gap-4">

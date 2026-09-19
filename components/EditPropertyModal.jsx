@@ -12,6 +12,12 @@ import {
   optionLabel,
   propertyAreaValue,
 } from '../lib/hostelSearchConfig';
+import {
+  createPropertyVideoPath,
+  PROPERTY_VIDEO_BUCKET,
+  propertyVideoPathFromPublicUrl,
+  validatePropertyVideo,
+} from '../lib/propertyVideo';
 
 const LocationPicker = dynamic(() => import('./LocationPicker'), {
   ssr: false,
@@ -61,6 +67,7 @@ function initialForm(property) {
     wifi_available: Boolean(property.wifi_available),
     description: property.description || '',
     images: Array.isArray(property.images) ? property.images : [],
+    video_url: property.video_url || '',
   };
 }
 
@@ -81,6 +88,9 @@ export default function EditPropertyModal({
   const [form, setForm] = useState(() => initialForm(property));
   const [newImages, setNewImages] = useState([]);
   const newImagesRef = useRef([]);
+  const [newVideo, setNewVideo] = useState(null);
+  const newVideoRef = useRef(null);
+  const [removeExistingVideo, setRemoveExistingVideo] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -89,10 +99,17 @@ export default function EditPropertyModal({
   }, [newImages]);
 
   useEffect(() => {
+    newVideoRef.current = newVideo;
+  }, [newVideo]);
+
+  useEffect(() => {
     return () => {
       newImagesRef.current.forEach((image) =>
         URL.revokeObjectURL(image.preview)
       );
+      if (newVideoRef.current?.preview) {
+        URL.revokeObjectURL(newVideoRef.current.preview);
+      }
     };
   }, []);
 
@@ -154,6 +171,32 @@ export default function EditPropertyModal({
       if (target) URL.revokeObjectURL(target.preview);
       return current.filter((_, imageIndex) => imageIndex !== index);
     });
+  }
+
+  function selectVideo(event) {
+    const file = event.target.files?.[0] || null;
+    const validationMessage = validatePropertyVideo(file);
+
+    if (validationMessage) {
+      setErrorMessage(validationMessage);
+      event.target.value = '';
+      return;
+    }
+
+    if (newVideo?.preview) URL.revokeObjectURL(newVideo.preview);
+    setNewVideo({ file, preview: URL.createObjectURL(file) });
+    setErrorMessage('');
+    event.target.value = '';
+  }
+
+  function removeSelectedVideo() {
+    if (newVideo?.preview) URL.revokeObjectURL(newVideo.preview);
+    setNewVideo(null);
+  }
+
+  function removeStoredVideo() {
+    setRemoveExistingVideo(true);
+    removeSelectedVideo();
   }
 
   async function submit(event) {
@@ -238,6 +281,7 @@ export default function EditPropertyModal({
     }
 
     setSaving(true);
+    let uploadedVideoPath = null;
 
     try {
       const {
@@ -268,6 +312,28 @@ export default function EditPropertyModal({
           .getPublicUrl(filePath);
 
         uploadedImages.push(publicUrlData.publicUrl);
+      }
+
+      let nextVideoUrl = removeExistingVideo ? null : form.video_url || null;
+
+      if (newVideo?.file) {
+        uploadedVideoPath = createPropertyVideoPath(user.id, newVideo.file);
+
+        const { error: videoUploadError } = await supabase.storage
+          .from(PROPERTY_VIDEO_BUCKET)
+          .upload(uploadedVideoPath, newVideo.file, {
+            cacheControl: '3600',
+            contentType: newVideo.file.type,
+            upsert: false,
+          });
+
+        if (videoUploadError) throw videoUploadError;
+
+        const { data: videoPublicUrlData } = supabase.storage
+          .from(PROPERTY_VIDEO_BUCKET)
+          .getPublicUrl(uploadedVideoPath);
+
+        nextVideoUrl = videoPublicUrlData.publicUrl;
       }
 
       const now = new Date().toISOString();
@@ -317,6 +383,7 @@ export default function EditPropertyModal({
         wifi_available: form.wifi_available,
         description: form.description.trim(),
         images: [...form.images, ...uploadedImages],
+        video_url: nextVideoUrl,
         updated_at: now,
       };
 
@@ -330,8 +397,30 @@ export default function EditPropertyModal({
 
       if (error) throw error;
 
+      const previousVideoPath = propertyVideoPathFromPublicUrl(
+        form.video_url
+      );
+
+      if (
+        previousVideoPath &&
+        (removeExistingVideo || newVideo?.file)
+      ) {
+        const { error: removalError } = await supabase.storage
+          .from(PROPERTY_VIDEO_BUCKET)
+          .remove([previousVideoPath]);
+
+        if (removalError) {
+          console.warn('Unable to remove the previous video:', removalError);
+        }
+      }
+
       onSaved(data);
     } catch (error) {
+      if (uploadedVideoPath) {
+        await supabase.storage
+          .from(PROPERTY_VIDEO_BUCKET)
+          .remove([uploadedVideoPath]);
+      }
       console.error('Unable to update property:', error);
       setErrorMessage(error.message || 'Unable to update this property.');
     } finally {
@@ -490,6 +579,92 @@ export default function EditPropertyModal({
                 />
               </label>
             </div>
+          </section>
+
+          <section className="space-y-4 border-t border-white/10 pt-6">
+            <div>
+              <h3 className="font-bold text-white">
+                Property video (optional)
+              </h3>
+              <p className="mt-1 text-sm text-gray-400">
+                Keep, replace or remove the single walkthrough video. MP4 or
+                WebM, maximum 50 MB.
+              </p>
+            </div>
+
+            {form.video_url && !removeExistingVideo && (
+              <div className="space-y-3">
+                <video
+                  src={form.video_url}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="max-h-[28rem] w-full rounded-xl border border-white/10 bg-black"
+                >
+                  Your browser does not support video playback.
+                </video>
+                <button
+                  type="button"
+                  onClick={removeStoredVideo}
+                  className="inline-flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20"
+                >
+                  <Trash2 size={16} />
+                  Remove current video
+                </button>
+              </div>
+            )}
+
+            {newVideo && (
+              <div className="space-y-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
+                <p className="text-sm font-semibold text-blue-200">
+                  {form.video_url && !removeExistingVideo
+                    ? 'Replacement video preview'
+                    : 'New video preview'}
+                </p>
+                <video
+                  src={newVideo.preview}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="max-h-[28rem] w-full rounded-xl border border-white/10 bg-black"
+                >
+                  Your browser does not support video playback.
+                </video>
+                <button
+                  type="button"
+                  onClick={removeSelectedVideo}
+                  className="inline-flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20"
+                >
+                  <Trash2 size={16} />
+                  Discard selected video
+                </button>
+              </div>
+            )}
+
+            {!newVideo && (
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 bg-white/5 p-5 text-sm font-semibold hover:border-blue-500/50 hover:bg-blue-500/5">
+                <span className="text-blue-400">▶</span>
+                {form.video_url && !removeExistingVideo
+                  ? 'Choose replacement video'
+                  : 'Add property video'}
+                <input
+                  type="file"
+                  accept="video/mp4,video/webm"
+                  onChange={selectVideo}
+                  className="hidden"
+                />
+              </label>
+            )}
+
+            {removeExistingVideo && !newVideo && (
+              <button
+                type="button"
+                onClick={() => setRemoveExistingVideo(false)}
+                className="text-sm font-semibold text-blue-300 hover:text-blue-200"
+              >
+                Undo video removal
+              </button>
+            )}
           </section>
 
           <section className="border-t border-white/10 pt-6">

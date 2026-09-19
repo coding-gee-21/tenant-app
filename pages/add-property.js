@@ -10,6 +10,11 @@ import {
   HOSTEL_AREAS,
   optionLabel,
 } from '../lib/hostelSearchConfig';
+import {
+  createPropertyVideoPath,
+  PROPERTY_VIDEO_BUCKET,
+  validatePropertyVideo,
+} from '../lib/propertyVideo';
 
 const LocationPicker = dynamic(
   () => import('../components/LocationPicker'),
@@ -98,6 +103,14 @@ export default function AddProperty() {
   // 6 Image Files State
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [videoFile, setVideoFile] = useState(null);
+  const [videoPreview, setVideoPreview] = useState('');
+
+  useEffect(() => {
+    return () => {
+      if (videoPreview) URL.revokeObjectURL(videoPreview);
+    };
+  }, [videoPreview]);
 
   // Structured Amenities State
   const [amenities, setAmenities] = useState({
@@ -127,6 +140,29 @@ export default function AddProperty() {
     const updatedPreviews = imagePreviews.filter((_, i) => i !== index);
     setImageFiles(updatedFiles);
     setImagePreviews(updatedPreviews);
+  };
+
+  const handleVideoChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    const validationMessage = validatePropertyVideo(file);
+
+    if (validationMessage) {
+      setErrorMsg(validationMessage);
+      event.target.value = '';
+      return;
+    }
+
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setVideoFile(file);
+    setVideoPreview(URL.createObjectURL(file));
+    setErrorMsg('');
+    event.target.value = '';
+  };
+
+  const removeVideo = () => {
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setVideoFile(null);
+    setVideoPreview('');
   };
 
   // Handle Form Submission
@@ -167,6 +203,8 @@ export default function AddProperty() {
 
     setLoading(true);
     setErrorMsg('');
+
+    let uploadedVideoPath = null;
 
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -225,6 +263,28 @@ export default function AddProperty() {
         imageUrls.push(publicUrlData.publicUrl);
       }
 
+      let videoUrl = null;
+
+      if (videoFile) {
+        uploadedVideoPath = createPropertyVideoPath(user.id, videoFile);
+
+        const { error: videoUploadError } = await supabase.storage
+          .from(PROPERTY_VIDEO_BUCKET)
+          .upload(uploadedVideoPath, videoFile, {
+            cacheControl: '3600',
+            contentType: videoFile.type,
+            upsert: false,
+          });
+
+        if (videoUploadError) throw videoUploadError;
+
+        const { data: videoPublicUrlData } = supabase.storage
+          .from(PROPERTY_VIDEO_BUCKET)
+          .getPublicUrl(uploadedVideoPath);
+
+        videoUrl = videoPublicUrlData.publicUrl;
+      }
+
       const propertyPayload = {
         title,
         house_type: houseType,
@@ -245,6 +305,7 @@ export default function AddProperty() {
         semester_rent: parseFloat(price),
         whatsapp: verifiedPhone,
         images: imageUrls,
+        video_url: videoUrl,
         description: description.trim(),
         landlord_display_name: management.landlordName.trim(),
         caretaker_name: management.caretakerName.trim() || null,
@@ -293,6 +354,11 @@ export default function AddProperty() {
       console.log('Listing published successfully:', data);
       router.push('/landlord/dashboard');
     } catch (err) {
+      if (uploadedVideoPath) {
+        await supabase.storage
+          .from(PROPERTY_VIDEO_BUCKET)
+          .remove([uploadedVideoPath]);
+      }
       setErrorMsg(err.message);
       setLoading(false);
     }
@@ -646,6 +712,58 @@ export default function AddProperty() {
                 </label>
               )}
             </div>
+          </div>
+
+          <div className="border-t border-white/10 pt-6">
+            <h3 className="mb-2 text-lg font-semibold">
+              Property Video (Optional — Max 1)
+            </h3>
+            <p className="mb-4 text-sm text-gray-400">
+              Add one MP4 or WebM walkthrough video, up to 50 MB. Listings
+              without a video will continue to work normally.
+            </p>
+
+            {videoPreview ? (
+              <div className="space-y-3">
+                <video
+                  src={videoPreview}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="max-h-[28rem] w-full rounded-xl border border-white/10 bg-black"
+                >
+                  Your browser does not support video playback.
+                </video>
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#18181B] px-4 py-3">
+                  <span className="truncate text-sm text-gray-300">
+                    {videoFile?.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={removeVideo}
+                    className="rounded-lg bg-red-500/10 px-3 py-1.5 text-sm font-semibold text-red-300 hover:bg-red-500/20"
+                  >
+                    Remove video
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/20 bg-[#18181B]/30 p-8 transition hover:border-blue-500">
+                <span className="mb-2 text-2xl">▶</span>
+                <span className="text-sm font-semibold text-gray-200">
+                  Add one property video
+                </span>
+                <span className="mt-1 text-xs text-gray-500">
+                  MP4 or WebM · maximum 50 MB
+                </span>
+                <input
+                  type="file"
+                  accept="video/mp4,video/webm"
+                  onChange={handleVideoChange}
+                  className="hidden"
+                />
+              </label>
+            )}
           </div>
 
           {/* Extra Information / Description */}
