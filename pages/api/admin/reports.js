@@ -61,7 +61,9 @@ export default async function handler(req, res) {
           is_verified,
           is_flagged,
           flag_reason,
-          flagged_at
+          flagged_at,
+          moderation_status,
+          auto_hidden_at
         )
       `)
       .order('created_at', {
@@ -115,7 +117,9 @@ export default async function handler(req, res) {
       .update({
         is_flagged: false,
         flag_reason: null,
-        flagged_at: null
+        flagged_at: null,
+        moderation_status: 'public',
+        auto_hidden_at: null
       })
       .eq('id', propertyId);
 
@@ -131,6 +135,7 @@ export default async function handler(req, res) {
       .from('properties')
       .update({
         is_flagged: true,
+        moderation_status: 'under_review',
         verification_status: 'pending',
         is_verified: false
       })
@@ -148,6 +153,7 @@ export default async function handler(req, res) {
       .from('properties')
       .update({
         is_flagged: true,
+        moderation_status: 'suspended',
         listing_status: 'suspended',
         verification_status: 'suspended',
         is_verified: false

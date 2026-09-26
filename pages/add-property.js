@@ -15,6 +15,10 @@ import {
   PROPERTY_VIDEO_BUCKET,
   validatePropertyVideo,
 } from '../lib/propertyVideo';
+import {
+  SECURITY_AMENITY_OPTIONS,
+  serializeSecurityAmenities,
+} from '../lib/securityAmenities';
 
 const LocationPicker = dynamic(
   () => import('../components/LocationPicker'),
@@ -116,7 +120,7 @@ export default function AddProperty() {
   const [amenities, setAmenities] = useState({
     electricity: { available: false, type: 'Prepaid Tokens' },
     water: { available: false, type: 'Free Running Water', cost: '' },
-    security: { available: false, type: 'Security Guard' },
+    security: { available: false, types: [] },
     wifi: { available: false }
   });
 
@@ -197,6 +201,15 @@ export default function AddProperty() {
       setErrorMsg(
         'Please select and confirm the hostel location before publishing.'
       );
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (
+      amenities.security.available &&
+      amenities.security.types.length === 0
+    ) {
+      setErrorMsg('Select at least one security amenity.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -329,8 +342,11 @@ export default function AddProperty() {
           amenities.water.cost
             ? parseFloat(amenities.water.cost)
             : null,
+        security_amenities: amenities.security.available
+          ? amenities.security.types
+          : [],
         security_system: amenities.security.available
-          ? amenities.security.type
+          ? serializeSecurityAmenities(amenities.security.types)
           : null,
         wifi_available: amenities.wifi.available,
         status: 'vacant',
@@ -637,27 +653,65 @@ export default function AddProperty() {
                   <input
                     type="checkbox"
                     checked={amenities.security.available}
-                    onChange={(e) => setAmenities({
-                      ...amenities,
-                      security: { ...amenities.security, available: e.target.checked }
-                    })}
+                    onChange={(e) => {
+                      const available = e.target.checked;
+                      setAmenities({
+                        ...amenities,
+                        security: {
+                          available,
+                          types: available
+                            ? amenities.security.types.length
+                              ? amenities.security.types
+                              : ['Security Guard']
+                            : [],
+                        },
+                      });
+                    }}
                     className="w-5 h-5 accent-blue-600 rounded"
                   />
                   <span className="font-medium">Security System</span>
                 </label>
                 {amenities.security.available && (
-                  <select
-                    value={amenities.security.type}
-                    onChange={(e) => setAmenities({
-                      ...amenities,
-                      security: { ...amenities.security, type: e.target.value }
-                    })}
-                    className="bg-[#121215] border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
-                  >
-                    <option value="Security Guard">Security Guard</option>
-                    <option value="Gated Compound">Gated Compound</option>
-                    <option value="Biometric Access">Biometrics</option>
-                  </select>
+                  <fieldset className="w-full rounded-xl border border-white/10 bg-[#121215] p-4 md:max-w-md">
+                    <legend className="px-1 text-xs font-medium text-gray-400">
+                      Select all that apply
+                    </legend>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {SECURITY_AMENITY_OPTIONS.map((option) => (
+                        <label
+                          key={option.value}
+                          className="flex cursor-pointer items-center gap-2 text-sm text-gray-200"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={amenities.security.types.includes(
+                              option.value
+                            )}
+                            onChange={(event) => {
+                              const types = event.target.checked
+                                ? [
+                                    ...amenities.security.types,
+                                    option.value,
+                                  ]
+                                : amenities.security.types.filter(
+                                    (value) => value !== option.value
+                                  );
+
+                              setAmenities({
+                                ...amenities,
+                                security: {
+                                  ...amenities.security,
+                                  types,
+                                },
+                              });
+                            }}
+                            className="h-4 w-4 accent-blue-600"
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
                 )}
               </div>
 

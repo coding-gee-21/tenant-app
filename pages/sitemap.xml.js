@@ -48,7 +48,9 @@ export async function getServerSideProps({ res }) {
   const { data: properties } = await supabase
     .from('properties')
     .select('id, updated_at')
-    .eq('listing_status', 'approved');
+    .eq('listing_status', 'approved')
+    .eq('is_flagged', false)
+    .eq('moderation_status', 'public');
 
   const propertyList = properties || [];
 

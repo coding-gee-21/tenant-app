@@ -378,7 +378,10 @@ export default function AdminDashboard() {
                         </div>
                         <p className="text-sm text-gray-400 mt-1">{reportedProperty.landmark || 'No landmark'} - KES {Number(reportedProperty.semester_rent || 0).toLocaleString()} / semester</p>
                       </div>
-                      <p className="text-xs text-gray-500">Property status: {reportedProperty.listing_status || 'unknown'}</p>
+                      <div className="text-right text-xs text-gray-500">
+                        <p>Property status: {reportedProperty.listing_status || 'unknown'}</p>
+                        <p>Public visibility: {reportedProperty.moderation_status === 'public' ? 'Visible' : 'Temporarily hidden'}</p>
+                      </div>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-3 text-sm">

@@ -18,6 +18,11 @@ import {
   propertyVideoPathFromPublicUrl,
   validatePropertyVideo,
 } from '../lib/propertyVideo';
+import {
+  SECURITY_AMENITY_OPTIONS,
+  securityAmenitiesFromProperty,
+  serializeSecurityAmenities,
+} from '../lib/securityAmenities';
 
 const LocationPicker = dynamic(() => import('./LocationPicker'), {
   ssr: false,
@@ -62,8 +67,10 @@ function initialForm(property) {
     water_available: Boolean(property.water_type),
     water_type: property.water_type || 'Free Running Water',
     water_cost: property.water_cost ?? '',
-    security_available: Boolean(property.security_system),
-    security_system: property.security_system || 'Security Guard',
+    security_available:
+      securityAmenitiesFromProperty(property).length > 0 ||
+      Boolean(property.security_system),
+    security_amenities: securityAmenitiesFromProperty(property),
     wifi_available: Boolean(property.wifi_available),
     description: property.description || '',
     images: Array.isArray(property.images) ? property.images : [],
@@ -271,6 +278,14 @@ export default function EditPropertyModal({
       return;
     }
 
+    if (
+      form.security_available &&
+      form.security_amenities.length === 0
+    ) {
+      setErrorMessage('Select at least one security amenity.');
+      return;
+    }
+
     const contactNumber = verifiedPhone || form.whatsapp;
 
     if (!contactNumber) {
@@ -377,8 +392,11 @@ export default function EditPropertyModal({
           form.water_cost !== ''
             ? optionalNumber(form.water_cost)
             : null,
+        security_amenities: form.security_available
+          ? form.security_amenities
+          : [],
         security_system: form.security_available
-          ? form.security_system
+          ? serializeSecurityAmenities(form.security_amenities)
           : null,
         wifi_available: form.wifi_available,
         description: form.description.trim(),
@@ -891,27 +909,58 @@ export default function EditPropertyModal({
                   <input
                     type="checkbox"
                     checked={form.security_available}
-                    onChange={(event) =>
-                      update('security_available', event.target.checked)
-                    }
+                    onChange={(event) => {
+                      const available = event.target.checked;
+                      setForm((current) => ({
+                        ...current,
+                        security_available: available,
+                        security_amenities: available
+                          ? current.security_amenities.length
+                            ? current.security_amenities
+                            : ['Security Guard']
+                          : [],
+                      }));
+                    }}
                   />
                   Security
                 </label>
                 {form.security_available && (
-                  <select
-                    value={form.security_system}
-                    onChange={(event) =>
-                      update('security_system', event.target.value)
-                    }
-                    className={inputClass}
-                  >
-                    <option value="Security Guard">Security Guard</option>
-                    <option value="Gated Compound">Gated Compound</option>
-                    <option value="CCTV Surveillance">
-                      CCTV Surveillance
-                    </option>
-                    <option value="None">None</option>
-                  </select>
+                  <fieldset className="rounded-xl border border-white/10 bg-[#18181B] p-4">
+                    <legend className="px-1 text-xs font-medium text-gray-400">
+                      Select all that apply
+                    </legend>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {SECURITY_AMENITY_OPTIONS.map((option) => (
+                        <label
+                          key={option.value}
+                          className="flex cursor-pointer items-center gap-2 text-sm text-gray-200"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={form.security_amenities.includes(
+                              option.value
+                            )}
+                            onChange={(event) => {
+                              const securityAmenities = event.target.checked
+                                ? [
+                                    ...form.security_amenities,
+                                    option.value,
+                                  ]
+                                : form.security_amenities.filter(
+                                    (value) => value !== option.value
+                                  );
+
+                              update(
+                                'security_amenities',
+                                securityAmenities
+                              );
+                            }}
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
                 )}
               </div>
 

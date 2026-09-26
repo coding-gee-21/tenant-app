@@ -11,6 +11,7 @@ import ViewingRequestModal from '../../components/ViewingRequestModal';
 import { useToast } from '../../components/Toast';
 import { estimateCampusTravel, formatDistance } from '../../lib/campusDistance';
 import { propertyLocationLabel } from '../../lib/hostelSearchConfig';
+import { formatSecurityAmenities } from '../../lib/securityAmenities';
 
 const PropertyMapViewer = dynamic(
   () => import('../../components/PropertyMapViewer'),
@@ -58,6 +59,8 @@ export default function PropertyDetail() {
         .select('*, landlord:landlords(*)')
         .eq('id', id)
         .eq('listing_status', 'approved')
+        .eq('is_flagged', false)
+        .eq('moderation_status', 'public')
         .single();
       
       if (!error && data) {
@@ -230,8 +233,8 @@ export default function PropertyDetail() {
   const handleReport = async (e) => {
     e.preventDefault();
 
-    if (!reportReason.trim()) {
-      alert('Please describe the issue.');
+    if (reportReason.trim().length < 10) {
+      showToast('Please describe the issue in at least 10 characters.', 'error');
       return;
     }
 
@@ -242,57 +245,43 @@ export default function PropertyDetail() {
         data: { user: currentUser }
       } = await supabase.auth.getUser();
 
-      const { error: reportError } = await supabase
-        .from('property_reports')
-        .insert({
-          property_id: property.id,
-          reporter_id: currentUser ? currentUser.id : null,
-          issue_type: reportType,
-          description: reportReason.trim(),
-          admin_status: 'pending'
-        });
+      if (!currentUser) {
+        showToast('Sign in with your student account to report a listing.', 'info');
+        router.push(`/auth?returnTo=/properties/${property.id}`);
+        return;
+      }
+
+      const { error: reportError } = await supabase.rpc(
+        'report_property_and_quarantine',
+        {
+          p_property_id: property.id,
+          p_issue_type: reportType,
+          p_description: reportReason.trim()
+        }
+      );
 
       if (reportError) throw reportError;
 
-      const combinedReason = `${reportType}: ${reportReason.trim()}`;
+      const landlordAccountId = property.user_id || property.landlord_id;
 
-      const { error: flagError } = await supabase
-        .from('properties')
-        .update({
-          is_flagged: true,
-          flag_reason: combinedReason,
-          flagged_at: new Date().toISOString()
-        })
-        .eq('id', property.id);
-
-      if (flagError) throw flagError;
-
-      if (property.user_id) {
+      if (landlordAccountId) {
         await supabase.from('notifications').insert({
-          landlord_id: property.user_id,
-          title: 'Listing Flagged / Reported',
-          message: `Your property "${property.title}" has been reported for: ${reportType}. It is now under administrator review.`,
+          landlord_id: landlordAccountId,
+          title: 'Listing temporarily hidden',
+          message: `Your property "${property.title}" was reported for: ${reportType}. It has been removed from public view while an administrator reviews it.`,
           type: 'property_report'
         });
       }
-
-      setProperty((current) => ({
-        ...current,
-        is_flagged: true,
-        flag_reason: combinedReason,
-        flagged_at: new Date().toISOString()
-      }));
 
       setReportSuccess(true);
       setReportReason('');
 
       setTimeout(() => {
-        setShowReportModal(false);
-        setReportSuccess(false);
-      }, 2500);
+        router.replace('/rentals');
+      }, 2200);
     } catch (err) {
       console.error('Report submission failed:', err);
-      alert('Error submitting report: ' + err.message);
+      showToast(err.message || 'Unable to submit this report.', 'error');
     } finally {
       setReportLoading(false);
     }
@@ -726,7 +715,9 @@ export default function PropertyDetail() {
             {/* Security */}
             <div className="bg-[#121215] border border-white/10 rounded-2xl p-5 flex flex-col justify-between">
               <span className="text-xs text-gray-400 uppercase tracking-wider">Security System</span>
-              <span className="text-lg font-semibold text-white mt-2">{property.security_system || 'Security Guard'}</span>
+              <span className="text-lg font-semibold text-white mt-2">
+                {formatSecurityAmenities(property)}
+              </span>
             </div>
 
           </div>
@@ -1016,11 +1007,11 @@ export default function PropertyDetail() {
           <div className="bg-[#121215] border border-white/10 rounded-2xl p-6 md:p-8 max-w-md w-full space-y-4">
             <h2 className="text-xl font-bold text-white">Report Listing</h2>
             <p className="text-sm text-gray-400">
-              Help us maintain accurate housing records around Chuka University.
+              Help us maintain accurate housing records around Chuka University. A submitted report temporarily hides the listing until an administrator reviews it.
             </p>
             {reportSuccess ? (
               <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-4 rounded-xl text-sm">
-                ✅ Report submitted successfully. Our team will review it immediately.
+                Report submitted. The listing has been temporarily removed from public view and sent to an administrator.
               </div>
             ) : (
               <form onSubmit={handleReport} className="space-y-4">
@@ -1049,6 +1040,8 @@ export default function PropertyDetail() {
                     className="w-full bg-[#18181B] border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none"
                     rows="3"
                     required
+                    minLength={10}
+                    maxLength={1000}
                     value={reportReason}
                     onChange={(e) => setReportReason(e.target.value)}
                     placeholder="Provide specific details..."

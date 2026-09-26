@@ -10,12 +10,13 @@ import {
 import HostelDirectoryMap from '../components/HostelDirectoryMap';
 import { estimateCampusTravel } from '../lib/campusDistance';
 import {
-  DISTANCE_BANDS,
   HOSTEL_AREAS,
   WALKING_TIME_BANDS,
+  linkedDistanceLabel,
   matchesArea,
   matchesNumericBand,
 } from '../lib/hostelSearchConfig';
+import { isPublicProperty } from '../lib/propertyModeration';
 import { supabase } from '../lib/supabaseClient';
 
 function hasCoordinates(property) {
@@ -60,7 +61,6 @@ export default function HostelMapPage() {
   const [houseType, setHouseType] = useState('');
   const [maximumRent, setMaximumRent] = useState('');
   const [walkingBand, setWalkingBand] = useState('');
-  const [distanceBand, setDistanceBand] = useState('');
   const [sortBy, setSortBy] = useState('distance');
   const [availableOnly, setAvailableOnly] = useState(true);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -75,6 +75,8 @@ export default function HostelMapPage() {
         .from('properties')
         .select('*')
         .eq('listing_status', 'approved')
+        .eq('is_flagged', false)
+        .eq('moderation_status', 'public')
         .order('created_at', { ascending: false });
 
       if (!active) return;
@@ -97,6 +99,7 @@ export default function HostelMapPage() {
   const mappedProperties = useMemo(
     () =>
       (properties || [])
+        .filter(isPublicProperty)
         .filter(hasCoordinates)
         .map((property) => ({
           ...property,
@@ -133,11 +136,6 @@ export default function HostelMapPage() {
             walkingBand,
             WALKING_TIME_BANDS
           ) &&
-          matchesNumericBand(
-            property.campus_estimate?.distanceKm ?? Number.POSITIVE_INFINITY,
-            distanceBand,
-            DISTANCE_BANDS
-          ) &&
           (!availableOnly || Number(property.vacant_rooms ?? 0) > 0) &&
           (!verifiedOnly || verifiedProperty(property))
         );
@@ -156,7 +154,6 @@ export default function HostelMapPage() {
   }, [
     area,
     availableOnly,
-    distanceBand,
     houseType,
     mappedProperties,
     maximumRent,
@@ -177,7 +174,6 @@ export default function HostelMapPage() {
     setHouseType('');
     setMaximumRent('');
     setWalkingBand('');
-    setDistanceBand('');
     setSortBy('distance');
     setAvailableOnly(true);
     setVerifiedOnly(false);
@@ -274,11 +270,13 @@ export default function HostelMapPage() {
             </label>
 
             <label>
-              <span className="sr-only">Distance from Gate A</span>
-              <select value={distanceBand} onChange={(event) => setDistanceBand(event.target.value)} className="w-full rounded-xl border border-white/10 bg-[#101013] p-3 text-sm">
-                <option value="">Any campus distance</option>
-                {DISTANCE_BANDS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
+              <span className="sr-only">Distance automatically linked to walking time</span>
+              <input
+                readOnly
+                value={walkingBand ? linkedDistanceLabel(walkingBand) : ''}
+                placeholder="Distance · Auto-linked"
+                className="w-full cursor-not-allowed rounded-xl border border-white/10 bg-[#101013] p-3 text-sm text-cyan-100 placeholder:text-gray-500"
+              />
             </label>
 
             <label>
