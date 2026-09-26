@@ -1,11 +1,18 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
+const ADMIN_PORTAL_TAP_LIMIT = 5;
+const ADMIN_PORTAL_TAP_WINDOW_MS = 4000;
+const ADMIN_PORTAL_TAP_STORAGE_KEY = 'cueaf-admin-portal-taps';
+
 export default function CUEAFBrand({ compact = false }) {
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const brandRef = useRef(null);
+  const adminTapSequenceRef = useRef({ count: 0, lastTapAt: 0 });
 
   useEffect(() => {
     const closeOnOutsideClick = (event) => {
@@ -29,6 +36,63 @@ export default function CUEAFBrand({ compact = false }) {
     };
   }, []);
 
+  const handleBrandMarkClick = (event) => {
+    const now = Date.now();
+    let previousSequence = adminTapSequenceRef.current;
+
+    try {
+      const storedSequence = window.sessionStorage.getItem(
+        ADMIN_PORTAL_TAP_STORAGE_KEY
+      );
+
+      if (storedSequence) {
+        const parsedSequence = JSON.parse(storedSequence);
+
+        if (
+          Number.isFinite(parsedSequence?.count) &&
+          Number.isFinite(parsedSequence?.lastTapAt)
+        ) {
+          previousSequence = parsedSequence;
+        }
+      }
+    } catch {
+      // The in-memory sequence still supports the shortcut when storage
+      // is unavailable, such as in a restrictive private-browsing mode.
+    }
+
+    const isWithinTapWindow =
+      now - previousSequence.lastTapAt <= ADMIN_PORTAL_TAP_WINDOW_MS;
+    const nextSequence = {
+      count: isWithinTapWindow ? previousSequence.count + 1 : 1,
+      lastTapAt: now,
+    };
+
+    adminTapSequenceRef.current = nextSequence;
+
+    if (nextSequence.count >= ADMIN_PORTAL_TAP_LIMIT) {
+      event.preventDefault();
+      adminTapSequenceRef.current = { count: 0, lastTapAt: 0 };
+
+      try {
+        window.sessionStorage.removeItem(ADMIN_PORTAL_TAP_STORAGE_KEY);
+      } catch {
+        // No cleanup is required when browser storage is unavailable.
+      }
+
+      void router.push('/admin/login');
+      return;
+    }
+
+    try {
+      window.sessionStorage.setItem(
+        ADMIN_PORTAL_TAP_STORAGE_KEY,
+        JSON.stringify(nextSequence)
+      );
+    } catch {
+      // Keep the in-memory fallback above when storage is unavailable.
+    }
+  };
+
   const expandedNameId = compact
     ? 'cueaf-expanded-name-sidebar'
     : 'cueaf-expanded-name-header';
@@ -42,6 +106,7 @@ export default function CUEAFBrand({ compact = false }) {
       <Link
         href="/"
         className="cueaf-brand__home"
+        onClick={handleBrandMarkClick}
         aria-label="Go to the CUEAF home page"
       >
         <span className="cueaf-brand__mark-wrap">
